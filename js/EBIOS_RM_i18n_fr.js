@@ -9,35 +9,35 @@ _registerTranslations("fr", {
     "ebios.label": "analyse",
 
     // ── Navigation (sidebar) ──
-    "ebios.sidebar.synth": "Synthese",
+    "ebios.sidebar.synth": "Synthèse",
     "ebios.sidebar.section_cadrage": "Cadrage",
-    "ebios.sidebar.a1": "Atelier 1 - Cadrage et socle de securite",
+    "ebios.sidebar.a1": "Atelier 1 - Cadrage et socle de sécurité",
     "ebios.sidebar.section_risques": "Risques",
     "ebios.sidebar.a2": "Atelier 2 - Sources de risques",
-    "ebios.sidebar.a3": "Atelier 3 - Scenarios strategiques",
-    "ebios.sidebar.a4": "Atelier 4 - Scenarios operationnels",
+    "ebios.sidebar.a3": "Atelier 3 - Scénarios stratégiques",
+    "ebios.sidebar.a4": "Atelier 4 - Scénarios opérationnels",
     "ebios.sidebar.section_traitement": "Traitement",
     "ebios.sidebar.a5": "Atelier 5 - Traitement du risque",
     "ebios.sidebar.section_aide": "Aide",
-    "ebios.sidebar.methodo": "Methodologie",
+    "ebios.sidebar.methodo": "Méthodologie",
     "ebios.sidebar.usage": "Utilisation",
     "ebios.sidebar.section_historique": "Historique",
     "ebios.sidebar.snapshots": "Snapshots",
 
     // ── NAV subtabs ──
-    "ebios.nav.synth": "Synthese",
+    "ebios.nav.synth": "Synthèse",
     "ebios.nav.context": "Contexte",
     "ebios.nav.vm": "Valeurs Metier",
     "ebios.nav.bs": "Biens Supports",
-    "ebios.nav.er": "Evenements Redoutes",
-    "ebios.nav.socle": "Socle de securite",
+    "ebios.nav.er": "Événements Redoutés",
+    "ebios.nav.socle": "Socle de sécurité",
     "ebios.nav.srov": "Couples SR/OV",
     "ebios.nav.pp": "Parties Prenantes",
-    "ebios.nav.ss": "Scenarios Strategiques",
-    "ebios.nav.eco": "Mesures Ecosysteme",
-    "ebios.nav.sop": "Scenarios Operationnels",
+    "ebios.nav.ss": "Scénarios Stratégiques",
+    "ebios.nav.eco": "Mesures Écosystème",
+    "ebios.nav.sop": "Scénarios Opérationnels",
     "ebios.nav.sop_synth": "Risques initiaux",
-    "ebios.nav.measures": "Referentiel Mesures",
+    "ebios.nav.measures": "Référentiel Mesures",
     "ebios.nav.residuals": "Risques Residuels",
     "ebios.nav.history": "Historique",
 
@@ -51,41 +51,41 @@ _registerTranslations("fr", {
     "ebios.menu.new_analysis": "Nouvelle analyse",
 
     // ── Panel descriptions ──
-    "ebios.desc.synth": "Vue consolidee de l'analyse : indicateurs cles, cartographies des risques, evolution et conformite du socle.",
-    "ebios.desc.context": "Informations generales sur l'organisation, le perimetre de l'etude et le cadre reglementaire.",
-    "ebios.desc.vm": "Valeurs metier essentielles de l'organisation : processus ou informations critiques. Preciser la nature (Information ou Processus) et le responsable.",
-    "ebios.desc.bs": "Composants du systeme d'information qui supportent les valeurs metier : applications, serveurs, reseaux, donnees.",
-    "ebios.desc.pp": "Acteurs externes a l'objet d'etude (fournisseurs, prestataires, partenaires). Evaluer leur niveau de menace via 4 criteres : Dependance, Penetration, Maturite cyber, Confiance.",
-    "ebios.desc.socle": "Evaluation de la conformite au referentiel de securite (ANSSI 42 mesures ou ISO 27001 93 mesures). Saisir le pourcentage de conformite et les ecarts identifies.",
-    "ebios.desc.srov": "Identification des sources de risque (acteurs de menace) et de leurs objectifs. Chaque couple SR/OV est evalue sur 3 criteres (Motivation, Ressources, Activite) pour determiner sa pertinence.",
+    "ebios.desc.synth": "Vue consolidée de l'analyse : indicateurs clés, cartographies des risques, évolution et conformité du socle.",
+    "ebios.desc.context": "Informations générales sur l'organisation, le périmètre de l'étude et le cadre réglementaire.",
+    "ebios.desc.vm": "Valeurs métier essentielles de l'organisation : processus ou informations critiques. Préciser la nature (Information ou Processus) et le responsable.",
+    "ebios.desc.bs": "Composants du système d'information qui supportent les valeurs métier : applications, serveurs, réseaux, données.",
+    "ebios.desc.pp": "Acteurs externes a l'objet d'etude (fournisseurs, prestataires, partenaires). Évaluer leur niveau de menace via 4 critères : Dépendance, Pénétration, Maturité cyber, Confiance.",
+    "ebios.desc.socle": "Évaluation de la conformité au référentiel de sécurité (ANSSI 42 mesures ou ISO 27001 93 mesures). Saisir le pourcentage de conformité et les écarts identifiés.",
+    "ebios.desc.srov": "Identification des sources de risque (acteurs de menace) et de leurs objectifs. Chaque couple SR/OV est évalué sur 3 critères (Motivation, Ressources, Activité) pour déterminer sa pertinence.",
     "ebios.desc.er": "Événements redoutés en termes d'impact métier pour chaque valeur métier. La gravité détermine l'importance de l'événement sur une échelle de 1 à {max}.",
-    "ebios.desc.ss": "Chemins d'attaque strategiques : QUI (SR) attaque POURQUOI (OV), VIA QUI (PP), ciblant QUOI (BS), provoquant QUEL evenement (ER). La gravite est calculee automatiquement (MAX des ER).",
-    "ebios.desc.eco": "Mesures de securite appliquees aux parties prenantes de l'ecosysteme pour reduire leur niveau de menace. Les mesures sont referencees dans le referentiel 5a.",
-    "ebios.desc.sop": "Detail des phases d'attaque (kill chain) pour chaque scenario operationnel. Pour chaque phase, identifier le controle existant, son efficacite, et proposer des mesures de traitement.",
-    "ebios.desc.sop_synth": "Synthese des risques initiaux : pour chaque scenario strategique, la gravite (issue des ER) croisee avec la vraisemblance operationnelle (issue des SOP) donne le niveau de risque initial.",
-    "ebios.desc.measures": "Referentiel complet des mesures de securite : mesures du socle (appliquees et manquantes), mesures ecosysteme, mesures SOP et mesures complementaires. Chaque mesure est tracee vers son origine.",
-    "ebios.desc.residuals": "Evaluation du risque residuel apres application des mesures. Pour chaque scenario strategique, definir la vraisemblance residuelle et la decision de traitement.",
-    "ebios.desc.history": "Points de sauvegarde et historique des modifications. Les snapshots sont stockes dans le navigateur.",
+    "ebios.desc.ss": "Chemins d'attaque stratégiques : QUI (SR) attaque POURQUOI (OV), VIA QUI (PP), ciblant QUOI (BS), provoquant QUEL événement (ER). La gravité est calculée automatiquement (MAX des ER).",
+    "ebios.desc.eco": "Mesures de sécurité appliquées aux parties prenantes de l'écosystème pour réduire leur niveau de menace. Les mesures sont référencées dans le référentiel 5a.",
+    "ebios.desc.sop": "Détail des phases d'attaque (kill chain) pour chaque scénario opérationnel. Pour chaque phase, identifier le contrôle existant, son efficacité, et proposer des mesures de traitement.",
+    "ebios.desc.sop_synth": "Synthèse des risques initiaux : pour chaque scénario stratégique, la gravité (issue des ER) croisée avec la vraisemblance opérationnelle (issue des SOP) donne le niveau de risque initial.",
+    "ebios.desc.measures": "Référentiel complet des mesures de sécurité : mesures du socle (appliquées et manquantes), mesures écosystème, mesures SOP et mesures complémentaires. Chaque mesure est tracée vers son origine.",
+    "ebios.desc.residuals": "Évaluation du risque résiduel après application des mesures. Pour chaque scénario stratégique, définir la vraisemblance résiduelle et la decision de traitement.",
+    "ebios.desc.history": "Points de sauvegarde et historique des modifications. Les snapshots sont stockés dans le navigateur.",
 
     // ── Footer ──
     "ebios.footer": "Rapport interactif EBIOS RM — Donnees modifiables, sauvegarde JSON",
 
     // ── Synthesis cards ──
     "ebios.synth.initial_map": "Cartographie des risques initiaux",
-    "ebios.synth.residual_map": "Cartographie des risques residuels",
-    "ebios.synth.socle_compliance": "Conformite du socle",
-    "ebios.synth.risk_dist": "Distribution des risques residuels",
+    "ebios.synth.residual_map": "Cartographie des risques résiduels",
+    "ebios.synth.socle_compliance": "Conformité du socle",
+    "ebios.synth.risk_dist": "Distribution des risques résiduels",
     "ebios.synth.risk_evolution": "Evolution des risques",
-    "ebios.synth.measures_todo": "Mesures a mettre en oeuvre",
+    "ebios.synth.measures_todo": "Mesures à mettre en oeuvre",
 
     // ── Buttons ──
-    "ebios.btn.add_vm": "+ Ajouter une valeur metier",
+    "ebios.btn.add_vm": "+ Ajouter une valeur métier",
     "ebios.btn.add_bs": "+ Ajouter un bien support",
     "ebios.btn.add_pp": "+ Ajouter une partie prenante",
-    "ebios.btn.add_er": "+ Ajouter un evenement redoute",
+    "ebios.btn.add_er": "+ Ajouter un événement redoute",
     "ebios.btn.add_srov": "+ Ajouter un couple SR/OV",
-    "ebios.btn.add_ss": "+ Ajouter un scenario strategique",
-    "ebios.btn.add_eco": "+ Ajouter une mesure ecosysteme",
+    "ebios.btn.add_ss": "+ Ajouter un scénario stratégique",
+    "ebios.btn.add_eco": "+ Ajouter une mesure écosystème",
     "ebios.btn.add_sop": "+ Nouveau SOP",
     "ebios.btn.add_measure": "+ Ajouter une mesure",
     "ebios.btn.add_phase": "+ Phase",
@@ -95,7 +95,7 @@ _registerTranslations("fr", {
     "ebios.btn.new_socle_measure": "+ Nouvelle mesure",
 
     // ── Help tabs ──
-    "ebios.help.tab_methodo": "Methodologie EBIOS RM",
+    "ebios.help.tab_methodo": "Méthodologie EBIOS RM",
     "ebios.help.tab_usage": "Utilisation de l'application",
 
     // ── Confirm dialog ──
@@ -124,9 +124,9 @@ _registerTranslations("fr", {
     "ebios.gravity.col_description": "Description",
     "ebios.gravity.col_impact_financier": "Impact financier",
     "ebios.gravity.col_impact_reputation": "Impact reputation",
-    "ebios.gravity.col_impact_reglementaire": "Impact reglementaire",
-    "ebios.gravity.col_impact_donnees_perso": "Impact donnees personnelles",
-    "ebios.gravity.col_impact_operationnel": "Impact operationnel",
+    "ebios.gravity.col_impact_reglementaire": "Impact réglementaire",
+    "ebios.gravity.col_impact_donnees_perso": "Impact données personnelles",
+    "ebios.gravity.col_impact_operationnel": "Impact opérationnel",
 
     // ── Risk matrix ──
     "ebios.matrix.heading": "Matrice de risque (Gravité × Vraisemblance)",
@@ -153,7 +153,7 @@ _registerTranslations("fr", {
     "ebios.socle.anssi_label": "ANSSI (42 mesures)",
     "ebios.socle.iso_label": "ISO 27001 (93 mesures)",
     "ebios.socle.non_evalue": "Socle non evalue",
-    "ebios.socle.conformite_moyenne": "Conformite moyenne : <strong>{avg}%</strong> ({count} mesures evaluees)",
+    "ebios.socle.conformite_moyenne": "Conformité moyenne : <strong>{avg}%</strong> ({count} mesures évaluées)",
 
     // ── Column headers: VM ──
     "ebios.col.vm_id": "ID",
@@ -198,7 +198,7 @@ _registerTranslations("fr", {
     "ebios.col.socle_priorite": "Priorité",
     "ebios.col.socle_mesures_prevues": "Mesures prévues",
 
-    // ── Column headers: Referentiels complementaires ──
+    // ── Column headers: Référentiels complémentaires ──
     "ebios.col.ref_title": "Référentiels complémentaires",
     "ebios.col.ref_ref": "Réf.",
     "ebios.col.ref_theme": "Thématique",
@@ -350,7 +350,7 @@ _registerTranslations("fr", {
     "ebios.history.col_actions": "Actions",
     "ebios.history.restore": "Restaurer",
     "ebios.history.export": "Exporter",
-    "ebios.history.hint": "Les snapshots sont stockes dans le navigateur (localStorage). Ils sont perdus si vous effacez les donnees du navigateur. Utilisez \"Exporter\" pour les sauvegarder en fichier.",
+    "ebios.history.hint": "Les snapshots sont stockés dans le navigateur (localStorage). Ils sont perdus si vous effacez les données du navigateur. Utilisez \"Exporter\" pour les sauvegarder en fichier.",
 
     // ── Status messages ──
     "ebios.status.modified": "Modifié",
@@ -408,21 +408,21 @@ _registerTranslations("fr", {
     "ebios.misc.measures_indicator": "Mesures",
     "ebios.misc.show_terminated": "Afficher aussi les mesures terminées",
     "ebios.misc.no_measures": "Aucune mesure",
-    "ebios.misc.measures_todo_count": "{todo} mesures a mettre en oeuvre sur {total} au total",
-    "ebios.misc.ss_not_evaluated": "{n} SS non evalues (pas de SOP ou V residuelle)",
-    "ebios.misc.eleve_label": "Eleve",
+    "ebios.misc.measures_todo_count": "{todo} mesures à mettre en oeuvre sur {total} au total",
+    "ebios.misc.ss_not_evaluated": "{n} SS non évalués (pas de SOP ou V résiduelle)",
+    "ebios.misc.eleve_label": "Élevé",
     "ebios.misc.moyen_label": "Moyen",
     "ebios.misc.faible_label": "Faible",
-    "ebios.misc.non_applique_label": "Non applique",
+    "ebios.misc.non_applique_label": "Non appliqué",
     "ebios.misc.partiel_label": "Partiel",
-    "ebios.misc.applique_label": "Applique",
+    "ebios.misc.applique_label": "Appliqué",
 
-    // ── Synthesis evolution ──
+    // ── Synthesis évolution ──
     "ebios.synth.col_ss": "SS",
     "ebios.synth.col_scenario": "Scenario",
     "ebios.synth.col_risque_initial": "Risque initial",
-    "ebios.synth.col_risque_residuel": "Risque residuel",
-    "ebios.synth.col_evolution": "Evolution",
+    "ebios.synth.col_risque_residuel": "Risque résiduel",
+    "ebios.synth.col_evolution": "Évolution",
     "ebios.synth.col_decision": "Decision",
     "ebios.synth.ameliore": "Ameliore",
     "ebios.synth.identique": "Identique",
@@ -472,7 +472,7 @@ _registerTranslations("fr", {
     "ebios.m.renforcement_socle": "Renforcement mesure socle {ref}",
     "ebios.m.mesure_eco_pour": "Mesure écosystème pour {pp}",
 
-    // ── Referentiels catalog descriptions (FR) ──
+    // ── Référentiels catalog descriptions (FR) ──
     "ebios.ref.gamp.desc": "Good Automated Manufacturing Practice — exigences cybersécurité pour systèmes validés",
     "ebios.ref.lpm.desc": "Loi de Programmation Militaire (France) — règles de sécurité des arrêtés sectoriels ANSSI pour OIV",
     "ebios.ref.loi0520.desc": "Loi marocaine sur la cybersécurité — obligations des organismes soumis",

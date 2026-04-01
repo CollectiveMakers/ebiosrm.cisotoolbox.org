@@ -51,13 +51,14 @@ function _loadI18nFile(lang, cb) {
     document.head.appendChild(s);
 }
 
-function switchLang(lang) {
+function switchLang(lang, cb) {
     if (!lang) lang = _locale === "fr" ? "en" : "fr";
     _loadI18nFile(lang, function() {
         _locale = lang;
         localStorage.setItem("ct_lang", lang);
         _applyStaticTranslations();
         if (typeof renderAll === "function") renderAll();
+        if (cb) cb();
     });
 }
 
@@ -124,6 +125,7 @@ _registerTranslations("fr", {
     "menu_save": "Enregistrer",
     "menu_save_as": "Enregistrer sous",
     "menu_new": "Nouvelle {label}",
+    "save_encrypt_prompt": "Voulez-vous chiffrer le fichier avec un mot de passe ?",
 
     // Status
     "status_session_restored": "Session restaurée",
@@ -197,6 +199,7 @@ _registerTranslations("en", {
     "menu_save": "Save",
     "menu_save_as": "Save as",
     "menu_new": "New {label}",
+    "save_encrypt_prompt": "Do you want to encrypt the file with a password?",
 
     // Status
     "status_session_restored": "Session restored",

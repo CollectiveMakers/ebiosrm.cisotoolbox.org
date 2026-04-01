@@ -584,7 +584,36 @@ async function quickSaveJSON() {
     await saveJSON();
 }
 
+// Custom confirm dialog using the confirm-overlay (Oui/Non buttons, i18n)
+function _confirmDialog(title, body) {
+    var overlay = document.getElementById("confirm-overlay");
+    if (!overlay) return Promise.resolve(confirm(title));
+    return new Promise(function(resolve) {
+        document.getElementById("confirm-title").textContent = title;
+        var bodyEl = document.getElementById("confirm-body");
+        if (bodyEl) bodyEl.textContent = body || "";
+        overlay.classList.add("open");
+        function cleanup() {
+            overlay.classList.remove("open");
+            document.getElementById("confirm-oui").onclick = null;
+            document.getElementById("confirm-non").onclick = null;
+        }
+        document.getElementById("confirm-oui").onclick = function() { cleanup(); resolve(true); };
+        document.getElementById("confirm-non").onclick = function() { cleanup(); resolve(false); };
+    });
+}
+
 async function saveJSON() {
+    // Ask whether to encrypt
+    var wantEncrypt = await _confirmDialog(t("save_encrypt_prompt"));
+    if (wantEncrypt) {
+        var pwd = await _promptPassword(t("pwd_title_choose_file"), true);
+        if (!pwd) return; // user cancelled
+        _filePwd = pwd;
+    } else {
+        _filePwd = null;
+    }
+
     var prefix = _ct().filePrefix || "Export";
     var societe = (_ct().getSociete ? _ct().getSociete.call(null, D) : D.meta && D.meta.societe) || prefix;
     var scope = _ct().getScope ? _ct().getScope.call(null, D) : "";

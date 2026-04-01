@@ -130,7 +130,8 @@ var SYSTEM_PROMPT = [
 "",
 "IMPORTANT: Always respond in the language specified in the user prompt (French or English).",
 "IMPORTANT: Always respond with valid JSON matching the requested schema. No markdown, no explanation — JSON only.",
-"IMPORTANT: NEVER propose elements that already exist in the analysis. The user prompt includes existing elements — check them carefully and only suggest NEW, DIFFERENT items. Avoid duplicates or near-duplicates (same concept with slightly different wording)."
+"IMPORTANT: NEVER propose elements that already exist in the analysis. The user prompt includes existing elements — check them carefully and only suggest NEW, DIFFERENT items. Avoid duplicates or near-duplicates (same concept with slightly different wording).",
+"IMPORTANT: When proposing more than 2 items, keep each suggestion concise: short names (max 10 words) and brief details (max 2 sentences). When proposing 1-2 items, you may provide more detailed descriptions."
 ].join("\n");
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -818,6 +819,7 @@ window.suggestSocleMeasure = async function(socleIdx) {
                 '\n\nJSON schema: [{"mesure":"short name","details":"detailed description","type":"Prévention|Détection|Réaction","ref_socle":"baseline reference (#XX for ANSSI or A.X.X for ISO) or empty","responsable":"suggested owner role"}]'
         });
         var suggestions = Array.isArray(result) ? result : [result];
+
         // Add context for accept handler
         suggestions.forEach(function(s) {
             s._socleIdx = socleIdx;
@@ -856,6 +858,7 @@ window.suggestEcoMeasure = async function(ecoIdx) {
                 '\n\nJSON schema: [{"mesure":"short name","details":"detailed implementation description (2-3 sentences)","type":"Contractuelle|Technique|Organisationnelle|Surveillance","ref_socle":"baseline reference (#XX for ANSSI or A.X.X for ISO) or empty","responsable":"suggested owner role"}]'
         });
         var suggestions = Array.isArray(result) ? result : [result];
+
         suggestions.forEach(function(s) {
             s._ecoIdx = ecoIdx;
             s._ppId = ppId;
@@ -890,6 +893,7 @@ window.suggestSOPMeasure = async function(sopIdx) {
                 '\n\nJSON schema: [{"mesure":"short name","details":"detailed description","type":"Prévention|Détection|Réaction","ref_socle":"baseline reference (#XX for ANSSI or A.X.X for ISO) or empty","responsable":"suggested owner role","effet":"expected effect"}]'
         });
         var suggestions = Array.isArray(result) ? result : [result];
+
         suggestions.forEach(function(s) {
             s._sopIdx = sopIdx;
             s._sop = entry.sop;
@@ -1005,6 +1009,7 @@ window.suggestResidualMeasures = async function(ssIdx) {
                 '\n\nJSON schema: {"selected_measures":["M-XX","M-YY"],"new_measures":[{"mesure":"short name","details":"description","type":"Prévention|Détection|Réaction","responsable":"..."}],"v_resid":1-' + (vInit || 4) + ',"justification":"why this residual likelihood"}'
         });
 
+        // Normalize field names
         // Parse and render
         var p = _aiEnsurePanel();
         _aiOpenPanel("✨ " + ss.id + " — " + ss.scenario);

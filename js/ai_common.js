@@ -109,7 +109,8 @@
                         messages: [{ role: "user", content: "hi" }]
                     })
                 });
-            } else if (provider === "openai") {
+            } else {
+                // OpenAI-compatible providers (openai, mistral)
                 resp = await fetch(providerConf.endpoint, {
                     method: "POST",
                     headers: {
@@ -166,7 +167,8 @@
                         messages: [{ role: "user", content: userPrompt }]
                     })
                 });
-            } else if (provider === "openai") {
+            } else {
+                // OpenAI-compatible providers (openai, mistral)
                 resp = await fetch(providerConf.endpoint, {
                     method: "POST",
                     headers: {
@@ -198,47 +200,21 @@
         }
 
         data = await resp.json();
-        if (provider === "openai") {
-            text = data.choices && data.choices[0] ? data.choices[0].message.content : "";
-        } else {
+        if (provider === "anthropic") {
             text = data.content && data.content[0] ? data.content[0].text : "";
+        } else {
+            // OpenAI-compatible (openai, mistral)
+            text = data.choices && data.choices[0] ? data.choices[0].message.content : "";
         }
         return text;
     };
 
-    // Parse JSON from AI response (handles markdown code fences and truncated output).
+    // Parse JSON from AI response (handles markdown code blocks)
+    // Parse JSON from AI response (handles markdown code fences). Returns parsed result as-is.
     window._aiParseJSON = function(raw) {
         var s = raw.trim();
         if (s.startsWith("```")) s = s.replace(/^```json?\s*/i, "").replace(/\s*```$/, "");
-        try {
-            return JSON.parse(s);
-        } catch(e) {
-            // Attempt to fix truncated JSON: close open strings, arrays and objects
-            var fixed = s;
-            // If truncated mid-string, close the string
-            var quotes = (fixed.match(/"/g) || []).length;
-            if (quotes % 2 !== 0) fixed += '"';
-            // Close any unclosed brackets/braces
-            var opens = 0, closes = 0;
-            for (var i = 0; i < fixed.length; i++) {
-                if (fixed[i] === "[") opens++;
-                if (fixed[i] === "]") closes++;
-            }
-            while (closes < opens) { fixed += "]"; closes++; }
-            opens = 0; closes = 0;
-            for (var j = 0; j < fixed.length; j++) {
-                if (fixed[j] === "{") opens++;
-                if (fixed[j] === "}") closes++;
-            }
-            while (closes < opens) { fixed += "}"; closes++; }
-            // Remove trailing comma before ] or }
-            fixed = fixed.replace(/,\s*([}\]])/g, "$1");
-            try {
-                return JSON.parse(fixed);
-            } catch(e2) {
-                throw new Error("Invalid JSON from AI (possibly truncated): " + e.message);
-            }
-        }
+        return JSON.parse(s);
     };
 
     // ═══════════════════════════════════════════════════════════════════

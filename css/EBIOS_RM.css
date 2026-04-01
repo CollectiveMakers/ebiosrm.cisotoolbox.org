@@ -1,5 +1,30 @@
 /* ── EBIOS RM — App-specific styles ────────────────────────────── */
 
+/* ── Analysis Catalog ─────────────────────────────────────────── */
+.catalog-btn-new { background: none; border: none; color: rgba(255,255,255,0.4); cursor: pointer; font-size: 1.1em; padding: 0 4px; line-height: 1; transition: color 0.15s; position: relative; }
+.catalog-btn-new:hover { color: white; }
+.catalog-btn-new:hover::after { content: attr(data-tip); position: absolute; bottom: 100%; right: 0; background: #1e293b; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; white-space: nowrap; pointer-events: none; z-index: 100; border: 1px solid rgba(255,255,255,0.15); }
+.catalog-actions-bar { display: flex; gap: 4px; padding: 4px 14px 6px; }
+.catalog-action { background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.5); cursor: pointer; font-size: 0.72em; padding: 3px 8px; border-radius: 4px; transition: all 0.15s; }
+.catalog-action:hover { background: rgba(255,255,255,0.15); color: white; }
+.catalog-search { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.8); font-size: 0.72em; padding: 3px 8px; border-radius: 4px; width: 100%; transition: border-color 0.2s; }
+.catalog-search:focus { outline: none; border-color: var(--light-blue); }
+.catalog-card { padding: 6px 14px; cursor: pointer; border-left: 3px solid transparent; transition: all 0.15s; }
+.catalog-card:hover { background: rgba(255,255,255,0.05); }
+.catalog-card.catalog-active { border-left-color: var(--light-blue); background: rgba(52,152,219,0.15); }
+.catalog-card-name { font-size: 0.82em; font-weight: 600; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.catalog-card-meta { font-size: 0.7em; color: rgba(255,255,255,0.4); display: flex; gap: 8px; margin-top: 1px; }
+.catalog-card-actions { display: none; gap: 2px; margin-top: 2px; }
+.catalog-card:hover .catalog-card-actions { display: flex; }
+.catalog-btn-sm { background: none; border: none; color: rgba(255,255,255,0.3); cursor: pointer; font-size: 0.8em; padding: 1px 4px; transition: color 0.15s; position: relative; }
+.catalog-btn-sm:hover { color: white; }
+.catalog-btn-sm:hover::after { content: attr(data-tip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.85em; white-space: nowrap; pointer-events: none; z-index: 100; border: 1px solid rgba(255,255,255,0.15); }
+.catalog-btn-del:hover { color: var(--red); }
+.catalog-action { background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.5); cursor: pointer; font-size: 0.72em; padding: 3px 8px; border-radius: 4px; transition: all 0.15s; position: relative; }
+.catalog-action:hover::after { content: attr(data-tip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.95em; white-space: nowrap; pointer-events: none; z-index: 100; border: 1px solid rgba(255,255,255,0.15); }
+.catalog-empty { padding: 8px 14px; font-size: 0.78em; color: rgba(255,255,255,0.3); font-style: italic; }
+.catalog-more { padding: 4px 14px; font-size: 0.72em; color: rgba(255,255,255,0.3); }
+
 .btn-save { background: var(--green); color: white; }
 .btn-load { background: var(--light-blue); color: white; }
 .btn-sidebar-toggle { display: none; }

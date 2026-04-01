@@ -48,7 +48,13 @@
     <div class="sidebar-section" data-i18n="ebios.sidebar.section_traitement">Traitement</div>
     <div class="sidebar-item" data-click="selectAtelier" data-args='["a5"]' data-i18n="ebios.sidebar.a5">Atelier 5 - Traitement du risque</div>
     <div class="flex-spacer"></div>
-    <div class="sidebar-section sidebar-divider" data-i18n="ebios.sidebar.section_aide">Aide</div>
+    <div class="sidebar-section sidebar-divider" style="display:flex;align-items:center">
+        <span data-i18n="catalog.section">Analyses</span>
+        <span style="flex:1"></span>
+        <button class="catalog-btn-new" data-click="catalogCreate" data-tip="Nouvelle analyse">+</button>
+    </div>
+    <div id="analysis-catalog"></div>
+    <div class="sidebar-section" data-i18n="ebios.sidebar.section_aide">Aide</div>
     <div class="sidebar-item" data-click="toggleHelp" data-args='["methodo"]' data-i18n="ebios.sidebar.methodo">Methodologie</div>
     <div class="sidebar-item" data-click="toggleHelp" data-args='["usage"]' data-i18n="ebios.sidebar.usage">Utilisation</div>
     <div class="sidebar-section" data-i18n="ebios.sidebar.section_historique">Historique</div>
@@ -458,6 +464,7 @@
 <script src="js/EBIOS_RM_data.js"></script>
 <script src="js/EBIOS_RM_i18n_fr.js"></script>
 <script src="js/EBIOS_RM_app.js"></script>
+<script src="js/EBIOS_RM_catalog.js"></script>
 <script src="js/ai_common.js"></script>
 <script src="js/EBIOS_RM_ai_assistant.js"></script>
 </body>

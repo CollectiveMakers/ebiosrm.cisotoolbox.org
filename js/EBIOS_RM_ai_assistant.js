@@ -420,6 +420,12 @@ var ACCEPT_HANDLERS = {
         if (_updateIfExists(D.pp, s, ["nom","categorie","type","dependance","penetration","maturite","confiance","bs"])) return s.id + " ✓";
         var id = nextId("pp");
         D.pp.push({id:id, nom:s.nom||"", categorie:s.categorie||"", type:s.type||"", dependance:s.dependance||"", penetration:s.penetration||"", maturite:s.maturite||"", confiance:s.confiance||"", bs:s.bs||""});
+        // Auto-create eco entry for this PP
+        var ppRef = id + " - " + (s.nom || "");
+        if (!D.eco.some(function(e) { return (e.pp_id || "").split(" - ")[0].trim() === id; })) {
+            D.eco.push({pp_id: ppRef, mesures_existantes: "", mesures_complementaires: "", categorie: "",
+                dep_resid: s.dependance || "", pen_resid: s.penetration || "", mat_resid: s.maturite || "", conf_resid: s.confiance || ""});
+        }
         return id;
     },
     srov: function(s) {
@@ -481,6 +487,8 @@ var TYPE_RENDER = {
 function _aiRerender(type) {
     var fn = TYPE_RENDER[type];
     if (fn && typeof window[fn] === "function") window[fn]();
+    // When PP changes, also refresh eco (auto-populates D.eco from D.pp)
+    if (type === "pp" && typeof renderEco === "function") renderEco();
     if (typeof renderIndicators === "function") renderIndicators();
 }
 

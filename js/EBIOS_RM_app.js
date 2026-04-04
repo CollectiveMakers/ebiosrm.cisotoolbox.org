@@ -130,29 +130,67 @@ function computeExposition(menace) {
     if (menace >= 1) return t("ebios.expo.moderee");
     return t("ebios.expo.faible");
 }
-function expoColor(expo) {
-    var m = {};
-    m[t("ebios.expo.critique")] = "var(--red)";
-    m[t("ebios.expo.elevee")] = "var(--orange)";
-    m[t("ebios.expo.moderee")] = "var(--yellow)";
-    m[t("ebios.expo.faible")] = "var(--green)";
-    return m[expo] || "#ccc";
-}
-function riskColor(level) {
-    if (!level) return "#ccc";
-    // Match both FR and EN labels
+// ── Color helpers using CT_COLORS from cisotoolbox.js ──
+function _riskColorName(level) {
+    if (!level) return "gray";
     var reds = ["Élevé", "Elevé", "Eleve", t("ebios.risk.eleve")];
     var oranges = ["Moyen", t("ebios.risk.moyen")];
     var greens = ["Faible", t("ebios.risk.faible")];
-    if (reds.indexOf(level) !== -1) return "var(--red)";
-    if (oranges.indexOf(level) !== -1) return "var(--orange)";
-    if (greens.indexOf(level) !== -1) return "var(--green)";
-    return "#ccc";
+    if (reds.indexOf(level) !== -1) return "red";
+    if (oranges.indexOf(level) !== -1) return "orange";
+    if (greens.indexOf(level) !== -1) return "green";
+    return "gray";
 }
-function gravColor(n) {
-    const c = {1:"var(--green)",2:"var(--yellow)",3:"var(--orange)",4:"var(--red)",5:"#c0392b"};
-    return c[n] || "#ccc";
+function riskColor(level) { return ctColor(_riskColorName(level)).vivid; }
+function _riskBg(level) { return ctColor(_riskColorName(level)).bg; }
+function _riskTxt(level) { return ctColor(_riskColorName(level)).txt; }
+function _riskBadge(text) { return ctBadge(text, _riskColorName(text)); }
+
+function _expoColorName(expo) {
+    var m = {};
+    m[t("ebios.expo.critique")] = "red";
+    m[t("ebios.expo.elevee")] = "orange";
+    m[t("ebios.expo.moderee")] = "yellow";
+    m[t("ebios.expo.faible")] = "green";
+    return m[expo] || "gray";
 }
+function expoColor(expo) { return ctColor(_expoColorName(expo)).vivid; }
+function _expoBadge(text) { return ctBadge(text, _expoColorName(text)); }
+
+function gravColor(n) { return ctColorLevel(n, 5).bg; }
+function gravTextColor(n) { return ctColorLevel(n, 5).txt; }
+function _gravBadge(text, n) { return ctBadgeLevel(text, n, 5); }
+
+function _socleBadge(text) {
+    var m = {};
+    m[t("ebios.socle.applique")] = "green";
+    m[t("ebios.socle.partiel")] = "orange";
+    m[t("ebios.socle.non_applique")] = "red";
+    return ctBadge(text, m[text] || "gray");
+}
+function _prioBadge(text) {
+    var m = {};
+    m[t("ebios.socle.priorite_haute")] = "red";
+    m[t("ebios.socle.priorite_moyenne")] = "orange";
+    m[t("ebios.socle.priorite_basse")] = "green";
+    return ctBadge(text, m[text] || "gray");
+}
+function _statutBadge(text) {
+    var m = {"Terminé":"green", "En cours":"orange", "À étudier":"red", "Planifié":"blue"};
+    return ctBadge(text, m[text] || "gray");
+}
+function _effBadge(count, text, type) {
+    if (!count) return "";
+    var m = {"Absent":"red", "Partiel":"orange", "Efficace":"green"};
+    var c = ctColor(m[type] || "gray");
+    return '<span class="badge" style="background:' + c.bg + ';color:' + c.txt + '">' + count + ' ' + esc(text) + '</span>';
+}
+function _origineBadge(text) {
+    var m = {"Socle":"green", "\u00c9cosyst\u00e8me":"yellow", "SOP":"orange", "Compl\u00e9mentaire":"blue"};
+    return ctBadge(text, m[text] || "gray");
+}
+
+// gravTextColor now uses ctColorLevel from CT_COLORS
 function gravLabel(n) {
     const gs = D.gravity_scale.find(g => g.niveau === n);
     return gs ? gs.label : "";
@@ -190,25 +228,8 @@ function computeSSGravity(erList) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// MODALE MOT DE PASSE
-// ═══════════════════════════════════════════════════════════════════════
-function _confirmDialog(title, body) {
-    return new Promise((resolve) => {
-        const overlay = document.getElementById("confirm-overlay");
-        document.getElementById("confirm-title").textContent = title;
-        document.getElementById("confirm-body").textContent = body;
-        overlay.classList.add("open");
-        function cleanup() {
-            overlay.classList.remove("open");
-            document.getElementById("confirm-oui").onclick = null;
-            document.getElementById("confirm-non").onclick = null;
-        }
-        document.getElementById("confirm-oui").onclick = () => { cleanup(); resolve(true); };
-        document.getElementById("confirm-non").onclick = () => { cleanup(); resolve(false); };
-    });
-}
+// _confirmDialog() is provided by cisotoolbox.js
 
-// ═══════════════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════════════
 function _range(a, b) { const r = []; for (let i = Math.max(1,a||1); i <= Math.min(4,b||4); i++) r.push(i); return r; }
 function inp(section, idx, field, val, type="text", cls="") {
@@ -263,76 +284,33 @@ function toggleDICT(section, idx, field, dim, el) {
 let _refCounter = 0;
 function refSelect(section, idx, field, val, options, single) {
     const uid = "ref" + (_refCounter++);
-    // Extraire les IDs sélectionnés depuis la valeur textuelle
-    const selected = (val || "").split(",").map(s => s.trim().split(" - ")[0].split(" ")[0].trim()).filter(Boolean);
-    // Tags
-    let tags = "";
-    for (const opt of options) {
-        if (selected.includes(opt.id)) {
-            tags += `<span class="ref-tag">${esc(opt.id)} - ${esc(opt.label)}<span class="ref-tag-x" data-click="refRemove" data-args='${_da(uid,section,idx,field,opt.id,!!single)}' data-stop>x</span></span>`;
-        }
-    }
-    if (!tags) tags = '<span class="text-muted fs-xs">' + t("ebios.misc.click_choose") + '</span>';
-    // Options dropdown
-    let opts = "";
-    for (const opt of options) {
-        const checked = selected.includes(opt.id) ? "checked" : "";
-        opts += `<label class="ref-option"><input type="${single?"radio":"checkbox"}" name="${uid}" value="${esc(opt.id)}" ${checked} data-change="refToggle" data-args='${_da(uid,section,idx,field,null,!!single)}' data-pass-el />${esc(opt.id)} - ${esc(opt.label)}</label>`;
-    }
-    return `<div class="ref-select" id="${uid}">
-        <div class="ref-tags" data-click="refOpen" data-args='${_da(uid)}'>${tags}</div>
-        <div class="ref-dropdown" id="${uid}-dd">
-            <input class="ref-search" placeholder="${t("ebios.misc.filter")}" data-input="refFilter" data-args='${_da(uid)}' data-pass-value data-click="_noop" data-stop />
-            <div class="ref-options">${opts}</div>
-        </div>
-    </div>`;
-}
-
-function refOpen(uid) {
-    // Fermer tous les autres dropdowns ouverts (avec re-render différé si dirty)
-    document.querySelectorAll(".ref-dropdown.open").forEach(d => {
-        if (d.id !== uid + "-dd") { d.classList.remove("open"); _refFlushDirty(d); }
+    ctRefRegister(uid, {
+        single: !!single,
+        emptyText: t("ebios.misc.click_choose"),
+        labelFor: id => _refLabelFor(section, field, id),
+        onToggle: (u, ids, el) => _refOnToggle(u, section, idx, field, ids, el, !!single),
+        onRemove: (u, removeId) => _refOnRemove(section, idx, field, removeId),
+        onFlush: () => _refOnFlush(section, field),
     });
-    const dd = document.getElementById(uid + "-dd");
-    const wasOpen = dd.classList.contains("open");
-    dd.classList.toggle("open");
-    if (!dd.classList.contains("open") && wasOpen) {
-        // Vient de se fermer via clic sur les tags
-        _refFlushDirty(dd);
-    } else if (dd.classList.contains("open")) {
-        const search = dd.querySelector(".ref-search");
-        if (search) { search.value = ""; refFilter(uid, ""); search.focus(); }
-    }
-}
-
-function refFilter(uid, query) {
-    const q = query.toLowerCase();
-    const dd = document.getElementById(uid + "-dd");
-    dd.querySelectorAll(".ref-option").forEach(opt => {
-        opt.style.display = opt.textContent.toLowerCase().includes(q) ? "" : "none";
+    return ctRefSelect(uid, val, options, {
+        placeholder: t("ebios.misc.filter"),
+        emptyText: t("ebios.misc.click_choose"),
+        single: !!single,
     });
 }
 
-function refToggle(uid, section, idx, field, checkbox, single) {
-    // Reconstruire la valeur depuis les checkboxes cochées
-    const dd = document.getElementById(uid + "-dd");
-    const checks = dd.querySelectorAll("input:checked");
-    const ids = Array.from(checks).map(c => c.value);
-    // Construire la valeur textuelle "ID - Label, ID - Label"
+function _refOnToggle(uid, section, idx, field, ids, el, single) {
     const parts = ids.map(id => {
         const label = _refLabelFor(section, field, id);
         return label ? id + " - " + label : id;
     });
     const val = parts.join(", ");
-    // Pour sr_id/ov_id : stocker uniquement l'ID et appeler updateSROVRef
     if ((field === "sr_id" || field === "ov_id") && section === "srov") {
         const selectedId = ids.length > 0 ? ids[0] : "";
         D[section][idx][field] = selectedId;
-        if (single) dd.classList.remove("open");
         updateSROVRef(idx, field, selectedId);
         return;
     }
-    // Référentiels complémentaires : section "comp_<fwId>"
     if (section.startsWith("comp_")) {
         const fwId = section.slice(5);
         const refKey = _compRefKey(fwId, idx);
@@ -340,60 +318,19 @@ function refToggle(uid, section, idx, field, checkbox, single) {
             if (!D.socle_complementaires[fwId][refKey]) D.socle_complementaires[fwId][refKey] = {conformite: "", ecart: "", mesures_prevues: ""};
             D.socle_complementaires[fwId][refKey][field] = val;
         }
-        if (single) dd.classList.remove("open");
-        _refUpdateTagsInline(uid, section, idx, field, ids);
-        if (!single) {
-            const wrap = document.getElementById(uid);
-            if (wrap) wrap.dataset.dirty = JSON.stringify({section, field});
-        }
+        if (single) _reRenderForField(section, field);
         return;
     }
     D[section][idx][field] = val;
     if (single) {
-        dd.classList.remove("open");
-        if (section === "eco") _ecoSyncColumns(idx, field, checkbox.value, checkbox.checked);
+        if (section === "eco") _ecoSyncColumns(idx, field, el ? el.value : "", el ? el.checked : false);
         _reRenderForField(section, field);
     } else {
-        // Multi-select : mettre à jour les tags sans re-render (la liste reste ouverte)
-        _refUpdateTagsInline(uid, section, idx, field, ids);
-        if (section === "eco") _ecoSyncColumns(idx, field, checkbox.value, checkbox.checked);
-        // Marquer pour re-render différé à la fermeture de la liste
-        const wrap = document.getElementById(uid);
-        if (wrap) wrap.dataset.dirty = JSON.stringify({section, field});
+        if (section === "eco") _ecoSyncColumns(idx, field, el ? el.value : "", el ? el.checked : false);
     }
 }
 
-// Mettre à jour les tags sans recréer le DOM
-function _refUpdateTagsInline(uid, section, idx, field, selectedIds) {
-    const wrap = document.getElementById(uid);
-    if (!wrap) return;
-    const tagsEl = wrap.querySelector(".ref-tags");
-    if (!tagsEl) return;
-    let html = "";
-    for (const id of selectedIds) {
-        const label = _refLabelFor(section, field, id);
-        const display = label ? id + " - " + label : id;
-        html += `<span class="ref-tag">${esc(display)}<span class="ref-tag-x" data-click="refRemove" data-args='${_da(uid,section,idx,field,id,false)}' data-stop>x</span></span>`;
-    }
-    if (!html) html = '<span class="text-muted fs-xs">' + t("ebios.misc.click_choose") + '</span>';
-    tagsEl.innerHTML = html;
-}
-
-// Déclencher le re-render différé si un dropdown multi-select est marqué dirty
-function _refFlushDirty(dd) {
-    const wrap = dd.closest(".ref-select");
-    if (wrap && wrap.dataset.dirty) {
-        const {section, field} = JSON.parse(wrap.dataset.dirty);
-        delete wrap.dataset.dirty;
-        if (section.startsWith("comp_")) {
-            // Pas de re-render complet nécessaire pour les refs complémentaires
-        } else {
-            _reRenderForField(section, field);
-        }
-    }
-}
-
-function refRemove(uid, section, idx, field, removeId, single) {
+function _refOnRemove(section, idx, field, removeId) {
     if (section.startsWith("comp_")) {
         const fwId = section.slice(5);
         const refKey = _compRefKey(fwId, idx);
@@ -411,8 +348,12 @@ function refRemove(uid, section, idx, field, removeId, single) {
     _reRenderForField(section, field);
 }
 
+function _refOnFlush(section, field) {
+    if (section.startsWith("comp_")) return;
+    _reRenderForField(section, field);
+}
+
 function _refLabelFor(section, field, id) {
-    // Trouver le label associé à un ID selon le contexte
     const maps = {
         "vm": () => { const v = D.vm.find(x => x.id === id); return v ? v.nom : ""; },
         "bs": () => { const b = D.bs.find(x => x.id === id); return b ? b.nom : ""; },
@@ -432,7 +373,6 @@ function _refLabelFor(section, field, id) {
         "sop": () => { const s = D.sop_summary.find(x => x.sop === id); return s ? s.ss : ""; },
         "measures": () => { const m = D.measures.find(x => x.id === id); return m ? m.mesure : ""; },
     };
-    // Déterminer quelle lookup utiliser selon le champ
     const fieldToSource = {
         "vm": "vm", "bs": "bs", "pp": "pp", "er": "er",
         "couple_id": "srov", "sop": "sop",
@@ -466,15 +406,6 @@ function _reRenderForField(section, field) {
     showStatus(t("ebios.status.modified"));
 }
 
-// Fermer les dropdowns quand on clique ailleurs + déclencher re-render différé
-document.addEventListener("click", function(e) {
-    if (!e.target.closest(".ref-select")) {
-        document.querySelectorAll(".ref-dropdown.open").forEach(d => {
-            d.classList.remove("open");
-            _refFlushDirty(d);
-        });
-    }
-});
 
 // Raccourcis clavier : voir cisotoolbox.js (Ctrl+Z/Y/S)
 
@@ -556,13 +487,13 @@ function propagateNameChange(id, newName) {
         ["ss", "pp"], ["ss", "bs"], ["ss", "er"],
         ["eco", "pp_id"], ["measures", "sop"], ["residuals", "mesures"],
     ];
-    const pattern = new RegExp("(^|, )" + id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "( - [^,]*)?", "g");
-    const replacement = "$1" + id + " - " + newName;
     for (const [sec, fld] of refFields) {
         if (!D[sec]) continue;
         for (const item of D[sec]) {
             if (item[fld] && typeof item[fld] === "string" && item[fld].includes(id)) {
-                item[fld] = item[fld].replace(pattern, replacement);
+                item[fld] = item[fld].split(", ").map(function(part) {
+                    return part.split(" - ")[0] === id ? id + " - " + newName : part;
+                }).join(", ");
             }
         }
     }
@@ -862,8 +793,9 @@ function renderContext() {
             const rawVal = row.levels[vi] || "";
             const canon = _toCanonicalRisk(rawVal);
             const displayed = _displayRisk(rawVal);
-            const rc = riskColor(canon);
-            gh += `<td style="text-align:center;padding:2px"><select style="width:100%;padding:4px;border-radius:4px;border:1.5px solid var(--border);font-weight:600;color:white;background:${rc};text-align:center" data-change="_setRiskMatrix" data-args='${_da(ri,vi)}' data-pass-value>`;
+            const rc = _riskBg(canon);
+            const rtc = _riskTxt(canon);
+            gh += `<td style="text-align:center;padding:2px"><select style="width:100%;padding:4px;border-radius:4px;border:1.5px solid var(--border);font-weight:600;color:${rtc};background:${rc};text-align:center" data-change="_setRiskMatrix" data-args='${_da(ri,vi)}' data-pass-value>`;
             for (const cval of riskCanonicals) {
                 gh += `<option value="${cval}" ${canon === cval ? "selected" : ""} class="text-black bg-white">${_displayRisk(cval)}</option>`;
             }
@@ -1027,7 +959,7 @@ function renderSocleRefs() {
             const ud = rows[m.ref] || {conformite: "", ecart: "", mesures_prevues: ""};
             const conf = ud.conformite;
             const confVal = (conf === "" || conf === null) ? 0 : parseInt(conf) || 0;
-            const confColor = confVal >= 80 ? "var(--green)" : confVal > 0 ? "var(--orange)" : "var(--red)";
+            const confColor = confVal >= 80 ? "#22c55e" : confVal > 0 ? "#f97316" : "#ef4444";
             const statut = socleStatut(conf);
             const prio = soclePriorite(conf);
             var _sc = {}; _sc[t("ebios.socle.applique")]="var(--green)"; _sc[t("ebios.socle.partiel")]="var(--yellow)"; _sc[t("ebios.socle.non_applique")]="var(--red)";
@@ -1045,9 +977,9 @@ function renderSocleRefs() {
             h += `<input type="range" min="0" max="100" step="1" value="${confVal}" style="width:100%;cursor:pointer;accent-color:${confColor}" `;
             h += `data-input="_sliderInput" data-pass-el `;
             h += `data-change="_refSliderChange" data-args='${_da(fwId,i)}' data-pass-value /></td>`;
-            h += `<td class="computed">${badge(statut, statutColor)}</td>`;
+            h += `<td class="computed">${_socleBadge(statut)}</td>`;
             h += `<td>${ta_ref(fwId, i, "ecart", ud.ecart)}</td>`;
-            h += `<td class="computed">${badge(prio, prioColor)}</td>`;
+            h += `<td class="computed">${_prioBadge(prio)}</td>`;
             h += `<td>${refSelect("comp_" + fwId, i, "mesures_prevues", ud.mesures_prevues || "", measuresOptions())}</td>`;
             h += `</tr>`;
         });
@@ -1104,7 +1036,7 @@ function renderPP() {
             <td>${sel("pp",i,"maturite",p.maturite,[1,2,3,4])}</td>
             <td${hd("conf")}>${sel("pp",i,"confiance",p.confiance,[1,2,3,4])}</td>
             <td${hd("menace")} class="computed">${menace !== null ? menace.toFixed(2) : ""}</td>
-            <td${hd("expo")} class="computed">${badge(expo, expoColor(expo))}</td>
+            <td${hd("expo")} class="computed">${_expoBadge(expo)}</td>
             <td${hd("bs")}>${refSelect("pp",i,"bs",p.bs,bsOptions())}</td>
             <td>${delBtn("pp",i)}</td></tr>`;
     });
@@ -1132,7 +1064,7 @@ function renderSocle() {
     socle.forEach((s, i) => {
         const conf = s.conformite;
         const confVal = (conf === "" || conf === null) ? 0 : parseInt(conf) || 0;
-        const confColor = confVal >= 80 ? "var(--green)" : confVal > 0 ? "var(--orange)" : "var(--red)";
+        const confColor = confVal >= 80 ? "#22c55e" : confVal > 0 ? "#f97316" : "#ef4444";
         const statut = socleStatut(conf);
         const prio = soclePriorite(conf);
         var _sc = {}; _sc[t("ebios.socle.applique")]="var(--green)"; _sc[t("ebios.socle.partiel")]="var(--yellow)"; _sc[t("ebios.socle.non_applique")]="var(--red)";
@@ -1143,9 +1075,9 @@ function renderSocle() {
         const desc = isAnssi ? _getAnssDesc(s.num) : _getIsoDesc(s.ref || s.num);
         h += `<tr><td>${esc(s[idCol])}</td><td${hd("theme")}>${esc(_rt(s, themeCol))}</td><td${hd("mesure")}><div class="fw-600 mb-4">${esc(_rt(s, "mesure"))}</div>${desc ? `<div class="desc-text">${esc(desc)}</div>` : ""}</td>
             <td${hd("conf")}><div id="${sliderId}" style="text-align:center;font-weight:700;font-size:0.85em;color:${confColor}">${conf !== "" && conf !== null ? confVal + "%" : "—"}</div><input type="range" min="0" max="100" step="1" value="${confVal}" style="width:100%;cursor:pointer;accent-color:${confColor}" data-s="${section}" data-i="${i}" data-f="conformite" data-lbl="${sliderId}" data-input="_sliderInput" data-pass-el data-change="_sliderChange" data-pass-el /></td>
-            <td${hd("statut")} class="computed">${badge(statut, statutColor)}</td>
+            <td${hd("statut")} class="computed">${_socleBadge(statut)}</td>
             <td${hd("ecart")}>${ta(section,i,"ecart",s.ecart)}</td>
-            <td${hd("prio")} class="computed">${badge(prio, prioColor)}</td>
+            <td${hd("prio")} class="computed">${_prioBadge(prio)}</td>
             <td${hd("mp")}>${refSelect(section,i,"mesures_prevues",s.mesures_prevues||"",measuresOptions())}<button class="btn-add btn-add-sm" data-click="addSocleMeasure" data-args='${_da(i)}'>${t("ebios.btn.new_socle_measure")}</button></td></tr>`;
     });
     h += '</tbody></table>';
@@ -1264,7 +1196,7 @@ function renderSROV() {
             <td${hd("r")}>${sel("srov",i,"ressources",s.ressources,[0,1,2,3,4])}</td>
             <td${hd("a")}>${sel("srov",i,"activite",s.activite,[0,1,2,3,4])}</td>
             <td${hd("pert")} class="computed">${pert||""}</td>
-            <td${hd("prio")} class="computed">${badge(prio, prioColor)}</td>
+            <td${hd("prio")} class="computed">${_prioBadge(prio)}</td>
             <td${hd("just")}>${ta("srov",i,"justification",s.justification)}</td>
             <td>${delBtn("srov",i)}</td></tr>`;
     });
@@ -1287,7 +1219,7 @@ function renderER() {
             <td${hd("vm")}>${refSelect("er",i,"vm",e.vm,vmOptions(),true)}</td><td${hd("dict")}>${dictToggle("er",i,"dict",e.dict)}</td>
             <td${hd("impacts")}>${ta("er",i,"impacts",e.impacts)}</td>
             <td${hd("grav")}>${sel("er",i,"gravite",e.gravite,gOpts)}</td>
-            <td${hd("label")} class="computed">${lbl ? badge(lbl, gravColor(e.gravite)) : ""}</td>
+            <td${hd("label")} class="computed">${lbl ? _gravBadge(lbl, e.gravite) : ""}</td>
             <td>${delBtn("er",i)}</td></tr>`;
     });
     h += '</tbody></table>';
@@ -1307,7 +1239,7 @@ function renderSS() {
             <td${hd("pp")}>${refSelect("ss",i,"pp",s.pp,ppOptions())}</td>
             <td${hd("bs")}>${refSelect("ss",i,"bs",s.bs,bsOptions())}</td>
             <td${hd("er")}>${refSelect("ss",i,"er",s.er,erOptions())}</td>
-            <td${hd("grav")} class="computed">${lbl ? badge(lbl, gravColor(gNum)) : ""}</td>
+            <td${hd("grav")} class="computed">${lbl ? _gravBadge(lbl, gNum) : ""}</td>
             <td>${delBtn("ss",i)}</td></tr>`;
     });
     h += '</tbody></table>';
@@ -1370,7 +1302,7 @@ function _buildEcoSVG(ppList, title) {
     // 0°=haut sens horaire : 270-360=haut-gauche, 0-90=haut-droit, 180-270=bas-gauche, 90-180=bas-droit(échelle)
     var _cl = t("ebios.eco.clients"), _pa = t("ebios.eco.partenaires"), _pr = t("ebios.eco.prestataires");
     const quads = {};
-    quads[_cl] = { a1: 270, a2: 360, color: "#1abc9c", rx: CX-R-M, ry: CY-R-M, rw: R+M-8, rh: R+M-8 };
+    quads[_cl] = { a1: 270, a2: 360, color: "#16a34a", rx: CX-R-M, ry: CY-R-M, rw: R+M-8, rh: R+M-8 };
     quads[_pa] = { a1: 0,   a2: 90,  color: "#9b59b6", rx: CX+8,   ry: CY-R-M, rw: R+M-8, rh: R+M-8 };
     quads[_pr] = { a1: 180, a2: 270, color: "#7f8c8d", rx: CX-R-M, ry: CY+8,   rw: R+M-8, rh: R+M-8 };
 
@@ -1405,7 +1337,7 @@ function _buildEcoSVG(ppList, title) {
     }
 
     // Centre
-    svg += `<circle cx="${CX}" cy="${CY}" r="7" fill="#2c3e50" />`;
+    svg += `<circle cx="${CX}" cy="${CY}" r="7" fill="#1e293b" />`;
 
     // Passe 1 : calculer toutes les positions des PP et labels
     const allPP = [];
@@ -1420,8 +1352,8 @@ function _buildEcoSVG(ppList, title) {
             const [px, py] = degXY(angle, rr);
             const cr = Math.max(7, Math.min(20, 4 + p.expo * 1.0));
             const fc = p.fiab;
-            const fill = fc < 4 ? "#e74c3c" : fc < 7 ? "#f39c12" : fc < 10 ? "#f1c40f" : "#1abc9c";
-            const stroke = fc < 4 ? "#c0392b" : fc < 7 ? "#e67e22" : fc < 10 ? "#d4ac0d" : "#16a085";
+            const fill = fc < 4 ? "#dc2626" : fc < 7 ? "#f59e0b" : fc < 10 ? "#eab308" : "#16a34a";
+            const stroke = fc < 4 ? "#b91c1c" : fc < 7 ? "#f59e0b" : fc < 10 ? "#eab308" : "#16a34a";
             const isLeft = px < CX;
             const labelText = esc(p.id + " - " + p.nom);
             // Label aligné sur le bord du rectangle du quadrant
@@ -1494,7 +1426,7 @@ function _buildEcoSVG(ppList, title) {
 
     const ly2 = ly + 24;
     svg += `<text x="60" y="${ly2}" font-size="9" fill="#999" font-weight="600">${t("ebios.eco.fiabilite")}</text>`;
-    const fiabs = [["#e74c3c",t("ebios.eco.fiab_faible"),170],["#f39c12",t("ebios.eco.fiab_moyenne"),250],["#f1c40f",t("ebios.eco.fiab_bonne"),340],["#1abc9c",t("ebios.eco.fiab_elevee"),420]];
+    const fiabs = [["#dc2626",t("ebios.eco.fiab_faible"),170],["#f59e0b",t("ebios.eco.fiab_moyenne"),250],["#eab308",t("ebios.eco.fiab_bonne"),340],["#16a34a",t("ebios.eco.fiab_elevee"),420]];
     for (const [c, label, fx] of fiabs) {
         svg += `<circle cx="${fx}" cy="${ly2-3}" r="5" fill="${c}" fill-opacity="0.75" />`;
         svg += `<text x="${fx+8}" y="${ly2}" font-size="9" fill="#999">${label}</text>`;
@@ -1560,7 +1492,7 @@ function renderEco() {
             <td${hd("mat")}>${sel("eco",i,"mat_resid",mr,_range(pp?pp.maturite:1,4))}</td>
             <td${hd("conf")}>${sel("eco",i,"conf_resid",cr,_range(pp?pp.confiance:1,4))}</td>
             <td${hd("mr")} class="computed">${menace !== null ? menace.toFixed(2) : ""}</td>
-            <td${hd("er")} class="computed">${badge(expo, expoColor(expo))}</td>
+            <td${hd("er")} class="computed">${_expoBadge(expo)}</td>
             </tr>`;
     });
     h += '</tbody></table>';
@@ -1624,7 +1556,7 @@ function renderSOP() {
     }
 
     D.sop_detail.forEach((s, i) => {
-        const effColor = {"Absent":"#e74c3c","Partiel":"#e67e22","Efficace":"#27ae60"}[s.efficacite] || "";
+        const _ec = _effColors[s.efficacite] || {bg:"#f1f5f9",txt:"#64748b"};
         h += '<tr>';
         if (spans[i] > 0) {
             h += `<td rowspan="${spans[i]}" style="vertical-align:top;font-weight:600;background:#eef3f7">${esc(s.sop)}<br><button class="btn-phase" data-click="addSOPPhase" data-args='${_da(i)}'>${t("ebios.btn.add_phase")}</button></td>`;
@@ -1637,7 +1569,7 @@ function renderSOP() {
             <td${hd("bs")}>${refSelect("sop_detail",i,"bs",s.bs,bsOptions())}</td>
             <td${hd("ctrl")}>${ta("sop_detail",i,"controle",s.controle)}</td>
             <td${hd("ref")}>${refSelect("sop_detail",i,"ref",s.ref,socleOptions())}</td>
-            <td class="ta-c"><span class="eff-badge" data-click="_effBadgeClick" data-pass-el>${s.efficacite ? badge(s.efficacite, effColor) : `<span class="text-muted fs-xs cursor-pointer">${t("ebios.col.sop_choose")}</span>`}</span><span class="hidden">${sel("sop_detail",i,"efficacite",s.efficacite,[t("ebios.eff.absent"),t("ebios.eff.partiel"),t("ebios.eff.efficace")])}</span></td>
+            <td class="ta-c"><span class="eff-badge" data-click="_effBadgeClick" data-pass-el>${s.efficacite ? '<span class="badge" style="background:'+_ec.bg+';color:'+_ec.txt+'">'+esc(s.efficacite)+'</span>' : `<span class="text-muted fs-xs cursor-pointer">${t("ebios.col.sop_choose")}</span>`}</span><span class="hidden">${sel("sop_detail",i,"efficacite",s.efficacite,[t("ebios.eff.absent"),t("ebios.eff.partiel"),t("ebios.eff.efficace")])}</span></td>
             <td${hd("mp")}>${refSelect("sop_detail",i,"mesure_proposee",s.mesure_proposee,measuresOptions())}<button class="btn-add btn-add-sm" data-click="addSOPMeasure" data-args='${_da(i)}'>${t("ebios.btn.new_measure")}</button></td>`;
         h += `<td><div class="phase-actions">`;
         h += `<button class="btn-move" data-click="moveSOPPhase" data-args='${_da(i,-1)}' title="Monter">&#9650;</button>`;
@@ -1867,23 +1799,23 @@ function renderSOPSynth() {
             if (j === 0) {
                 h += `<td rowspan="${rspan}" style="font-weight:600;vertical-align:top">${esc(s.id)}</td>`;
                 h += `<td rowspan="${rspan}" style="vertical-align:top;font-size:0.9em">${esc(s.scenario)}</td>`;
-                h += `<td rowspan="${rspan}" class="ta-c-va-t">${gNum ? badge(gLbl, gravColor(gNum)) : ""}</td>`;
+                h += `<td rowspan="${rspan}" class="ta-c-va-t">${gNum ? _gravBadge(gLbl, gNum) : ""}</td>`;
             }
             const ph = sop.phases;
             const tauxPct = sop.taux != null ? (sop.taux * 100).toFixed(0) + "%" : "";
             const tauxColor = sop.taux >= 0.7 ? "var(--red)" : sop.taux >= 0.4 ? "var(--orange)" : sop.taux >= 0.2 ? "var(--yellow)" : "var(--green)";
             h += `<td class="fw-600">${esc(sop.sop)}</td>`;
-            h += `<td><div style="display:flex;flex-direction:column;gap:3px;align-items:center">${ph.absent ? badge(ph.absent + " " + t("ebios.eff.absent"), "#e74c3c") : ""}${ph.partiel ? badge(ph.partiel + " " + t("ebios.eff.partiel"), "#e67e22") : ""}${ph.efficace ? badge(ph.efficace + " " + t("ebios.eff.efficace"), "#27ae60") : ""}</div></td>`;
+            h += `<td><div style="display:flex;flex-direction:column;gap:3px;align-items:center">${ph.absent ? _effBadge(ph.absent, t("ebios.eff.absent"), "Absent") : ""}${ph.partiel ? _effBadge(ph.partiel, t("ebios.eff.partiel"), "Partiel") : ""}${ph.efficace ? _effBadge(ph.efficace, t("ebios.eff.efficace"), "Efficace") : ""}</div></td>`;
             h += `<td class="ta-c"><span style="color:${tauxColor};font-weight:600">${tauxPct}</span></td>`;
             if (j === 0) {
                 h += `<td rowspan="${rspan}" style="text-align:center;vertical-align:top;font-weight:600">${vInit || ""}</td>`;
-                h += `<td rowspan="${rspan}" class="ta-c-va-t">${risk ? badge(risk, rc) : '<span class="text-muted">—</span>'}</td>`;
+                h += `<td rowspan="${rspan}" class="ta-c-va-t">${risk ? _riskBadge(risk) : '<span class="text-muted">—</span>'}</td>`;
             }
             h += '</tr>';
         });
         if (sd.sops.length === 0) {
             h += `<tr><td class="fw-600">${esc(s.id)}</td><td style="font-size:0.9em">${esc(s.scenario)}</td>`;
-            h += `<td class="ta-c">${gNum ? badge(gLbl, gravColor(gNum)) : ""}</td>`;
+            h += `<td class="ta-c">${gNum ? _gravBadge(gLbl, gNum) : ""}</td>`;
             h += `<td colspan="3" style="text-align:center;color:var(--text-muted);font-style:italic">${t("ebios.col.sopsynth_no_sop")}</td>`;
             h += `<td class="ta-c">—</td><td class="ta-c"><span class="text-muted">—</span></td></tr>`;
         }
@@ -1908,7 +1840,7 @@ function renderMeasures() {
             <td${hd("resp")}>${inp("measures",i,"responsable",m.responsable)}</td>
             <td${hd("ech")}>${inp("measures",i,"echeance",m.echeance)}</td>
             <td${hd("cout")}>${inp("measures",i,"cout",m.cout)}</td>
-            <td${hd("statut")} class="ta-c"><span class="eff-badge" data-click="_effBadgeClick" data-pass-el>${m.statut ? badge(m.statut, ({"Terminé":"#27ae60","En cours":"#e67e22","À étudier":"#e74c3c"})[m.statut]||"#999") : `<span class="text-muted fs-xs cursor-pointer">${t("ebios.col.sop_choose")}</span>`}</span><span class="hidden">${sel("measures",i,"statut",m.statut,["Terminé","En cours","À étudier"])}</span></td>
+            <td${hd("statut")} class="ta-c"><span class="eff-badge" data-click="_effBadgeClick" data-pass-el>${m.statut ? _statutBadge(m.statut) : `<span class="text-muted fs-xs cursor-pointer">${t("ebios.col.sop_choose")}</span>`}</span><span class="hidden">${sel("measures",i,"statut",m.statut,["Terminé","En cours","À étudier"])}</span></td>
             <td>${delBtn("measures",i)}</td></tr>`;
     });
     h += '</tbody></table>';
@@ -1952,11 +1884,11 @@ function renderResiduals() {
         const vrOptions = [];
         for (let v = 1; v <= (vInit || 4); v++) vrOptions.push(v);
         h += `<tr><td>${esc(s.id)}</td><td${hd("scenario")}>${esc(s.scenario)}</td>
-            <td${hd("grav")} class="computed">${lbl ? badge(lbl, gravColor(gNum)) : ""}</td>
+            <td${hd("grav")} class="computed">${lbl ? _gravBadge(lbl, gNum) : ""}</td>
             <td${hd("mesures")}>${refSelect("residuals",i,"mesures",res.mesures||"",measuresOptions())}</td>
-            <td${hd("vi")} class="computed">${vInit ? badge("V" + vInit + (riInit ? " — " + riInit : ""), riInitColor || "#999") : '<span class="text-muted">—</span>'}</td>
+            <td${hd("vi")} class="computed">${vInit ? _riskBadge(riInit ? "V" + vInit + " \u2014 " + riInit : "V" + vInit) : '<span class="text-muted">—</span>'}</td>
             <td${hd("vr")}>${sel("residuals",i,"v_resid",vrClamped,vrOptions)}</td>
-            <td${hd("rr")} class="computed">${risk ? badge(risk, rColor) : ""}</td>
+            <td${hd("rr")} class="computed">${risk ? _riskBadge(risk) : ""}</td>
             <td${hd("dec")}>${sel("residuals",i,"decision",res.decision||"",["Accepter","Réduire","Transférer","Éviter"])}</td></tr>`;
     });
     h += '</tbody></table>';
@@ -1981,9 +1913,9 @@ function renderSynthesis() {
         else nonEval++;
     });
     let distH = '<div class="risk-dist">';
-    distH += `<div class="risk-bar" style="background:var(--red)"><div class="count">${eleve}</div><div class="label">${t("ebios.misc.eleve_label")}</div></div>`;
-    distH += `<div class="risk-bar" style="background:var(--orange)"><div class="count">${moyen}</div><div class="label">${t("ebios.misc.moyen_label")}</div></div>`;
-    distH += `<div class="risk-bar" style="background:var(--green)"><div class="count">${faible}</div><div class="label">${t("ebios.misc.faible_label")}</div></div>`;
+    distH += `<div class="risk-bar" style="background:#fca5a5;color:#991b1b"><div class="count">${eleve}</div><div class="label">${t("ebios.misc.eleve_label")}</div></div>`;
+    distH += `<div class="risk-bar" style="background:#fed7aa;color:#9a3412"><div class="count">${moyen}</div><div class="label">${t("ebios.misc.moyen_label")}</div></div>`;
+    distH += `<div class="risk-bar" style="background:#dcfce7;color:#166534"><div class="count">${faible}</div><div class="label">${t("ebios.misc.faible_label")}</div></div>`;
     distH += '</div>';
     if (nonEval > 0) distH += `<p style="color:var(--text-muted);font-size:0.85em;margin-top:8px">${t("ebios.misc.ss_not_evaluated", {n: nonEval})}</p>`;
     document.getElementById("synth-risk-dist").innerHTML = distH;
@@ -2010,38 +1942,49 @@ function renderSynthesis() {
         ssPositions.push({ id: s.id, gNum, vInit, vResid });
     });
 
-    function buildMatrix(target, getV, label) {
-        // Grouper les SS par (g, v)
-        const cells = {};
-        ssPositions.forEach(sp => {
-            const v = getV(sp);
+    function buildMatrix(target, getV) {
+        var grid = {};
+        ssPositions.forEach(function(sp) {
+            var v = getV(sp);
             if (!sp.gNum || !v || v < 1 || v > 4) return;
-            const key = sp.gNum + "-" + v;
-            if (!cells[key]) cells[key] = [];
-            cells[key].push(sp.id);
+            // Key: x=vraisemblance, y=gravité (X-axis=V, Y-axis=G)
+            var key = v + "-" + sp.gNum;
+            if (!grid[key]) grid[key] = [];
+            grid[key].push({
+                id: sp.id,
+                label: sp.id + " — " + (D.ss.find(function(s) { return s.id === sp.id; }) || {}).scenario || ""
+            });
         });
 
-        let mH = `<table class="risk-matrix"><thead><tr><th>G \\ V</th>`;
-        for (let v = 1; v <= 4; v++) mH += `<th>V${v}</th>`;
-        mH += `</tr></thead><tbody>`;
-        const gLevels = D.risk_matrix.map(r => parseInt(r.g)).filter(g => !isNaN(g)).sort((a,b) => b-a);
-        for (const g of gLevels) {
-            const lbl = gravLabel(g);
-            mH += `<tr><th style="font-size:0.75em">${lbl || "G"+g}</th>`;
-            for (let v = 1; v <= 4; v++) {
-                const level = riskLevel(g, v);
-                const c = riskColor(level);
-                const ids = cells[g + "-" + v] || [];
-                mH += `<td style="background:${c}; font-size:0.75em; vertical-align:middle">${ids.join(", ")}</td>`;
+        var gLabels = [];
+        for (var g = 1; g <= 4; g++) { gLabels.push(gravLabel(g) || "G" + g); }
+
+        document.getElementById(target).innerHTML = ctRenderMatrix({
+            levels: 4,
+            xLabel: t("ebios.synth.col_vraisemblance") || "Vraisemblance",
+            yLabel: t("ebios.synth.col_gravite") || "Gravite",
+            yLabels: gLabels,
+            grid: grid,
+            colorFn: function(v, g) {
+                // v=vraisemblance (x), g=gravite (y) — use the risk matrix to get the color
+                var level = riskLevel(g, v);
+                return _riskBg(level);
+            },
+            legend: [
+                {label: t("ebios.risk.faible") || "Faible", color: "#dcfce7"},
+                {label: t("ebios.risk.moyen") || "Moyen", color: "#fed7aa"},
+                {label: t("ebios.risk.eleve") || "Eleve", color: "#fca5a5"}
+            ],
+            tooltipFn: function(items) {
+                return items.map(function(item) {
+                    return '<div style="padding:2px 0"><strong>' + esc(item.id) + '</strong> ' + esc(item.label.split(" — ")[1] || "") + '</div>';
+                }).join("");
             }
-            mH += '</tr>';
-        }
-        mH += '</tbody></table>';
-        document.getElementById(target).innerHTML = mH;
+        });
     }
 
-    buildMatrix("synth-matrix-initial", sp => sp.vInit);
-    buildMatrix("synth-matrix-residual", sp => sp.vResid);
+    buildMatrix("synth-matrix-initial", function(sp) { return sp.vInit; });
+    buildMatrix("synth-matrix-residual", function(sp) { return sp.vResid; });
 
     // Évolution des risques
     let evH = `<table><thead><tr><th>${t("ebios.synth.col_ss")}</th><th>${t("ebios.synth.col_scenario")}</th><th>${t("ebios.synth.col_risque_initial")}</th><th>${t("ebios.synth.col_risque_residuel")}</th><th>${t("ebios.synth.col_evolution")}</th><th>${t("ebios.synth.col_decision")}</th></tr></thead><tbody>`;
@@ -2068,8 +2011,8 @@ function renderSynthesis() {
             else evol = `<span style="color:var(--red);font-weight:600">&#x2197; ${t("ebios.synth.degrade")}</span>`;
         } else evol = '<span class="text-muted">—</span>';
         evH += `<tr><td>${esc(s.id)}</td><td class="fs-sm">${esc(s.scenario)}</td>`;
-        evH += `<td class="ta-c">${riskInit ? badge(riskInit, riColor) : "—"}</td>`;
-        evH += `<td class="ta-c">${riskResid ? badge(riskResid, rrColor) : "—"}</td>`;
+        evH += `<td class="ta-c">${riskInit ? _riskBadge(riskInit) : "—"}</td>`;
+        evH += `<td class="ta-c">${riskResid ? _riskBadge(riskResid) : "—"}</td>`;
         evH += `<td class="ta-c">${evol}</td>`;
         evH += `<td>${esc(res.decision || "")}</td></tr>`;
     });
@@ -2093,9 +2036,9 @@ function renderSynthesis() {
         });
         const avg = count > 0 ? Math.round(totalConf / count) : 0;
         let scH = '<div class="risk-dist">';
-        scH += `<div class="risk-bar" style="background:var(--red)"><div class="count">${nonApp}</div><div class="label">${t("ebios.misc.non_applique_label")}</div></div>`;
-        scH += `<div class="risk-bar" style="background:var(--yellow)"><div class="count">${partiel}</div><div class="label">${t("ebios.misc.partiel_label")}</div></div>`;
-        scH += `<div class="risk-bar" style="background:var(--green)"><div class="count">${applique}</div><div class="label">${t("ebios.misc.applique_label")}</div></div>`;
+        scH += `<div class="risk-bar" style="background:#fca5a5;color:#991b1b"><div class="count">${nonApp}</div><div class="label">${t("ebios.misc.non_applique_label")}</div></div>`;
+        scH += `<div class="risk-bar" style="background:#fed7aa;color:#9a3412"><div class="count">${partiel}</div><div class="label">${t("ebios.misc.partiel_label")}</div></div>`;
+        scH += `<div class="risk-bar" style="background:#dcfce7;color:#166534"><div class="count">${applique}</div><div class="label">${t("ebios.misc.applique_label")}</div></div>`;
         scH += '</div>';
         scH += `<p style="font-size:0.85em;margin-top:8px;color:var(--text-muted)">${t("ebios.socle.conformite_moyenne", {avg: avg, count: count})}</p>`;
         document.getElementById("synth-socle").innerHTML = scH;
@@ -2106,7 +2049,7 @@ function renderSynthesis() {
     // Synthèse des mesures
     const showAllMeasures = document.getElementById("synth-measures-all") && document.getElementById("synth-measures-all").checked;
     const filteredMeasures = showAllMeasures ? D.measures.filter(m => m.statut !== "À étudier") : D.measures.filter(m => m.statut && m.statut !== "Terminé" && m.statut !== "À étudier");
-    const origColor = {"Socle":"var(--green)","Écosystème":"var(--yellow)","SOP":"var(--orange)","Complémentaire":"var(--light-blue)"};
+    const origColor = {"Socle":"#dcfce7","Écosystème":"#fef9c3","SOP":"#fed7aa","Complémentaire":"#dbeafe"};
     const statutColor = {"Terminé":"var(--green)","En cours":"var(--orange)","À étudier":"var(--red)"};
     const hasTerminated = D.measures.some(m => m.statut === "Terminé");
     let msH = hasTerminated ? `<label style="font-size:0.85em;cursor:pointer;margin-bottom:8px;display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="synth-measures-all" ${showAllMeasures?"checked":""} data-change="renderSynthesis"> ${t("ebios.misc.show_terminated")}</label>` : "";
@@ -2114,10 +2057,10 @@ function renderSynthesis() {
         msH += `<table class="fs-sm"><thead><tr><th>${t("ebios.synth.col_id")}</th><th>${t("ebios.synth.col_mesure")}</th><th>${t("ebios.synth.col_origine")}</th><th>${t("ebios.synth.col_responsable")}</th><th>${t("ebios.synth.col_echeance")}</th><th>${t("ebios.synth.col_statut")}</th></tr></thead><tbody>`;
         filteredMeasures.forEach(m => {
             msH += `<tr><td><strong>${esc(m.id)}</strong></td><td>${esc(m.mesure)}</td>`;
-            msH += `<td>${m.origine ? badge(m.origine, origColor[m.origine]||"#999") : ""}</td>`;
+            msH += `<td>${m.origine ? _origineBadge(m.origine) : ""}</td>`;
             msH += `<td>${esc(m.responsable||"")}</td>`;
             msH += `<td>${esc(m.echeance||"")}</td>`;
-            msH += `<td>${m.statut ? badge(m.statut, statutColor[m.statut]||"#999") : ""}</td></tr>`;
+            msH += `<td>${m.statut ? _statutBadge(m.statut) : ""}</td></tr>`;
         });
         msH += '</tbody></table>';
         const toDoCount = D.measures.filter(m => m.statut && m.statut !== "Terminé" && m.statut !== "À étudier").length;

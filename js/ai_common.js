@@ -246,7 +246,10 @@
 
         var panel = _aiEnsurePanel();
         panel.title.textContent = t("settings.title");
-        panel.body.innerHTML =
+        var _hideAI = cfg.hideAI || false;
+        var _hideDemo = cfg.hideDemo || false;
+
+        var _settingsHTML =
             // Language
             '<div class="settings-section">' +
                 '<div class="settings-label">' + t("settings.language") + '</div>' +
@@ -254,8 +257,11 @@
                     '<button class="settings-lang-btn' + (_locale === "fr" ? " active" : "") + '" id="settings-lang-fr">Français</button>' +
                     '<button class="settings-lang-btn' + (_locale === "en" ? " active" : "") + '" id="settings-lang-en">English</button>' +
                 '</div>' +
-            '</div>' +
-            // AI
+            '</div>';
+
+        // AI section (unless hidden)
+        if (!_hideAI) {
+            _settingsHTML +=
             '<div class="settings-section">' +
                 '<div class="settings-label">' + t("settings.ai_section") + '</div>' +
                 '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">' +
@@ -272,24 +278,42 @@
                     '<button class="settings-btn-eye" id="settings-toggle-key" title="' + t("settings.show_key") + '">👁</button>' +
                 '</div>' +
                 '<p class="fs-xs text-muted" style="margin-top:6px">' + t("settings.api_key_note") + '</p>' +
-                // Context file
                 '<div class="settings-label fs-sm" style="margin-top:12px;margin-bottom:4px">' + t("settings.context_file") + '</div>' +
                 '<div style="display:flex;gap:6px;align-items:center">' +
                     '<input type="file" class="settings-input" id="settings-context-file" accept=".md,.txt,.markdown" style="flex:1;font-family:inherit">' +
                     (_aiGetContextName() ? '<button class="ai-btn-ignore" id="settings-context-clear" style="white-space:nowrap">' + t("settings.context_clear") + '</button>' : '') +
                 '</div>' +
                 (_aiGetContextName() ? '<p class="fs-xs" style="margin-top:4px;color:var(--green)">&#10003; ' + esc(_aiGetContextName()) + ' (' + Math.round(_aiGetContext().length / 1024) + ' Ko)</p>' : '<p class="fs-xs text-muted" style="margin-top:4px">' + t("settings.context_note") + '</p>') +
-            '</div>' +
+            '</div>';
+        } else {
+            // Hidden AI toggle for save handler compatibility
+            _settingsHTML += '<input type="checkbox" id="settings-ai-toggle" style="display:none">';
+            _settingsHTML += '<input type="hidden" id="settings-api-key" value="' + esc(key) + '">';
+            _settingsHTML += '<input type="hidden" id="settings-provider" value="' + esc(curProvider) + '">';
+            _settingsHTML += '<input type="hidden" id="settings-model" value="">';
+        }
+
+        // App-specific extra settings (injected via AI_APP_CONFIG.settingsExtraHTML)
+        _settingsHTML += (cfg.settingsExtraHTML ? cfg.settingsExtraHTML() : '');
+
+        // Buttons
+        _settingsHTML +=
             '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">' +
                 '<button class="ai-btn-close" id="settings-cancel">' + t("ai.close") + '</button>' +
                 '<button class="ai-btn-accept" id="settings-save">' + t("settings.save") + '</button>' +
-            '</div>' +
-            // Demo (at the bottom)
+            '</div>';
+
+        // Demo (unless hidden)
+        if (!_hideDemo) {
+            _settingsHTML +=
             '<div class="settings-section" style="margin-top:24px;border-top:1px solid var(--border);padding-top:16px">' +
                 '<div class="settings-label">' + t("settings.demo_section") + '</div>' +
                 '<p class="fs-xs text-muted" style="margin-bottom:8px">' + t("settings.demo_note") + '</p>' +
                 '<button class="ai-btn-close" style="width:100%;padding:8px;font-size:0.85em" id="settings-load-demo">' + t("settings.demo_load") + '</button>' +
             '</div>';
+        }
+
+        panel.body.innerHTML = _settingsHTML;
         panel.footer.innerHTML = "";
         _aiOpenPanel();
 
@@ -297,7 +321,8 @@
         document.getElementById("settings-cancel").onclick = _aiClosePanel;
         document.getElementById("settings-lang-fr").onclick = function() { switchLang("fr"); openSettings(); };
         document.getElementById("settings-lang-en").onclick = function() { switchLang("en"); openSettings(); };
-        document.getElementById("settings-load-demo").onclick = function() {
+        var demoBtn = document.getElementById("settings-load-demo");
+        if (demoBtn) demoBtn.onclick = function() {
             var demoFile = _locale === "fr" ? "demo-fr.json" : "demo-en.json";
             _aiClosePanel();
             fetch(demoFile).then(function(r) {
@@ -313,14 +338,16 @@
                 alert(t("settings.demo_error", {msg: e.message}));
             });
         };
-        document.getElementById("settings-toggle-key").onclick = function() {
+        var toggleKeyBtn = document.getElementById("settings-toggle-key");
+        if (toggleKeyBtn) toggleKeyBtn.onclick = function() {
             var inp = document.getElementById("settings-api-key");
             inp.type = inp.type === "password" ? "text" : "password";
         };
         // Context file upload
         var _pendingContext = null;
         var _pendingContextName = null;
-        document.getElementById("settings-context-file").onchange = function(e) {
+        var ctxFile = document.getElementById("settings-context-file");
+        if (ctxFile) ctxFile.onchange = function(e) {
             var file = e.target.files[0];
             if (!file) return;
             var reader = new FileReader();
@@ -340,7 +367,8 @@
             openSettings(); // re-render to update UI
         };
 
-        document.getElementById("settings-provider").onchange = function() {
+        var provSelect = document.getElementById("settings-provider");
+        if (provSelect) provSelect.onchange = function() {
             var p = this.value;
             document.getElementById("settings-api-key").placeholder = (AI_PROVIDERS[p] || AI_PROVIDERS.anthropic).placeholder;
             document.getElementById("settings-api-key").value = "";
@@ -393,6 +421,9 @@
             else if (typeof renderAll === "function") renderAll();
             showStatus(t("settings.saved"));
         };
+
+        // App-specific post-render hook
+        if (cfg.onSettingsRendered) cfg.onSettingsRendered();
     };
 
     // ═══════════════════════════════════════════════════════════════════

@@ -43,13 +43,145 @@ function badge(text, color) {
     return '<span class="badge" style="background:' + color + '">' + esc(text) + '</span>';
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// CT_COLORS — Centralized color palette for all apps
+// ═══════════════════════════════════════════════════════════════════════
+
+var CT_COLORS = {
+    // 3-level scale (risk, conformity, priority)
+    green:    {bg: "#dcfce7", txt: "#166534", vivid: "#22c55e"},
+    orange:   {bg: "#fed7aa", txt: "#9a3412", vivid: "#f97316"},
+    red:      {bg: "#fca5a5", txt: "#991b1b", vivid: "#ef4444"},
+    // Extra levels for 5-6 level matrices
+    yellow:   {bg: "#fef9c3", txt: "#854d0e", vivid: "#eab308"},
+    redDark:  {bg: "#fecaca", txt: "#991b1b", vivid: "#dc2626"},
+    redMax:   {bg: "#ef4444", txt: "#ffffff", vivid: "#b91c1c"},
+    // Neutral & accents
+    blue:     {bg: "#dbeafe", txt: "#1e40af", vivid: "#3b82f6"},
+    indigo:   {bg: "#e0e7ff", txt: "#3730a3", vivid: "#6366f1"},
+    violet:   {bg: "#ede9fe", txt: "#5b21b6", vivid: "#8b5cf6"},
+    purple:   {bg: "#f3e8ff", txt: "#7e22ce", vivid: "#a855f7"},
+    pink:     {bg: "#fce7f3", txt: "#9d174d", vivid: "#ec4899"},
+    cyan:     {bg: "#cffafe", txt: "#155e75", vivid: "#06b6d4"},
+    teal:     {bg: "#ccfbf1", txt: "#115e59", vivid: "#14b8a6"},
+    gray:     {bg: "#f1f5f9", txt: "#64748b", vivid: "#94a3b8"},
+    dark:     {bg: "#e2e8f0", txt: "#1e293b", vivid: "#475569"},
+
+    // Named semantic scales (apps map their labels to these)
+    scale3: ["green", "orange", "red"],             // Faible/Moyen/Élevé
+    scale4: ["green", "yellow", "orange", "red"],   // 4-level gravity
+    scale5: ["green", "yellow", "orange", "redDark", "red"],  // 5-level
+    scale6: ["green", "yellow", "orange", "redDark", "red", "redMax"],  // 6-level matrix
+
+    // Matrix color grids (precomputed for performance)
+    matrix5: [
+        ["#dcfce7","#dcfce7","#fef9c3","#fed7aa","#fecaca"],
+        ["#dcfce7","#fef9c3","#fed7aa","#fecaca","#fecaca"],
+        ["#fef9c3","#fed7aa","#fed7aa","#fecaca","#fca5a5"],
+        ["#fed7aa","#fecaca","#fecaca","#fca5a5","#fca5a5"],
+        ["#fecaca","#fecaca","#fca5a5","#fca5a5","#ef4444"]
+    ],
+    matrix4: [
+        ["#dcfce7","#fef9c3","#fed7aa","#fca5a5"],
+        ["#fef9c3","#fed7aa","#fca5a5","#fca5a5"],
+        ["#fed7aa","#fca5a5","#fca5a5","#fca5a5"],
+        ["#fca5a5","#fca5a5","#fca5a5","#ef4444"]
+    ],
+
+    // Slider accent colors (for conformity sliders etc.)
+    sliderGreen:  "#22c55e",
+    sliderOrange: "#f97316",
+    sliderRed:    "#ef4444",
+};
+
+/**
+ * Get a color object {bg, txt, vivid} by scale name.
+ * @param {string} name — one of: green, orange, red, yellow, redDark, redMax, blue, gray
+ * @returns {{bg:string, txt:string, vivid:string}}
+ */
+function ctColor(name) {
+    return CT_COLORS[name] || CT_COLORS.gray;
+}
+
+/**
+ * Get color by numeric level (1-based) in a scale.
+ * @param {number} level — 1 to N
+ * @param {number} maxLevel — max level (3, 4, 5, or 6)
+ * @returns {{bg:string, txt:string, vivid:string}}
+ */
+function ctColorLevel(level, maxLevel) {
+    var scale = CT_COLORS["scale" + (maxLevel || 3)] || CT_COLORS.scale3;
+    var idx = Math.max(0, Math.min(level - 1, scale.length - 1));
+    return CT_COLORS[scale[idx]] || CT_COLORS.gray;
+}
+
+/**
+ * Render a styled badge with pastel background and dark text.
+ * @param {string} text — badge label
+ * @param {string} colorName — CT_COLORS key (green, orange, red, yellow, blue, gray...)
+ * @returns {string} HTML
+ */
+function ctBadge(text, colorName) {
+    if (!text) return "";
+    var c = CT_COLORS[colorName] || CT_COLORS.gray;
+    return '<span class="badge" style="background:' + c.bg + ';color:' + c.txt + '">' + esc(text) + '</span>';
+}
+
+/**
+ * Render a styled badge by numeric level.
+ * @param {string} text — badge label
+ * @param {number} level — 1 to N
+ * @param {number} maxLevel — max level (3, 4, 5)
+ * @returns {string} HTML
+ */
+function ctBadgeLevel(text, level, maxLevel) {
+    if (!text) return "";
+    var c = ctColorLevel(level, maxLevel);
+    return '<span class="badge" style="background:' + c.bg + ';color:' + c.txt + '">' + esc(text) + '</span>';
+}
+
 function confColor(v) {
-    if (v === "" || v === null || v === undefined) return "var(--text-muted)";
+    if (v === "" || v === null || v === undefined) return CT_COLORS.gray.vivid;
     var n = parseInt(v);
-    return n >= 80 ? "var(--green)" : n > 0 ? "var(--orange)" : "var(--red)";
+    return n >= 80 ? CT_COLORS.sliderGreen : n > 0 ? CT_COLORS.sliderOrange : CT_COLORS.sliderRed;
 }
 
 function _noop() {}
+window._noop = _noop;
+
+// ═══════════════════════════════════════════════════════════════════════
+// SLIDER — Shared slider with dynamic color (red→green)
+// ═══════════════════════════════════════════════════════════════════════
+
+function _sliderColor(val, max) {
+    // Smooth gradient through Tailwind-like colors: red → orange → yellow → green
+    var ratio = max > 0 ? val / max : 0;
+    // Stops: 0=#ef4444 (red-500), 0.33=#f97316 (orange-500), 0.66=#eab308 (yellow-500), 1=#22c55e (green-500)
+    var stops = [[239,68,68],[249,115,22],[234,179,8],[34,197,94]];
+    var pos = ratio * (stops.length - 1);
+    var i = Math.min(Math.floor(pos), stops.length - 2);
+    var t2 = pos - i;
+    var r = Math.round(stops[i][0] + (stops[i+1][0] - stops[i][0]) * t2);
+    var g = Math.round(stops[i][1] + (stops[i+1][1] - stops[i][1]) * t2);
+    var b = Math.round(stops[i][2] + (stops[i+1][2] - stops[i][2]) * t2);
+    return "rgb(" + r + "," + g + "," + b + ")";
+}
+
+function _applySliderStyle(el) {
+    var val = parseInt(el.value) || 0;
+    var max = parseInt(el.max) || 5;
+    var color = _sliderColor(val, max);
+    var pct = max > 0 ? (val / max * 100) : 0;
+    el.style.background = "linear-gradient(to right, " + color + " " + pct + "%, var(--border) " + pct + "%)";
+    var styleId = "slider-style-" + el.id;
+    var existing = document.getElementById(styleId);
+    if (!existing) { existing = document.createElement("style"); existing.id = styleId; document.head.appendChild(existing); }
+    existing.textContent = "#" + el.id + "::-webkit-slider-thumb{background:" + color + "} #" + el.id + "::-moz-range-thumb{background:" + color + "}";
+}
+
+function _initSliders() {
+    document.querySelectorAll(".slider-input").forEach(function(el) { _applySliderStyle(el); });
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 // DELEGATION D'EVENEMENTS (CSP : zero inline handlers)
@@ -390,12 +522,20 @@ function _saveState() {
     _redoStack.length = 0;
 }
 
+function _updateUndoButtons() {
+    var u = document.querySelector(".btn-undo");
+    var r = document.querySelector(".btn-redo");
+    if (u) u.style.opacity = _undoStack.length ? "1" : "0.3";
+    if (r) r.style.opacity = _redoStack.length ? "1" : "0.3";
+}
+
 function undo() {
     if (_undoStack.length === 0) return;
     _redoStack.push(JSON.stringify(D));
     D = JSON.parse(_undoStack.pop());
     if (typeof renderAll === "function") renderAll();
     if (typeof _autoSave === "function") _autoSave();
+    _updateUndoButtons();
 }
 
 function redo() {
@@ -404,185 +544,12 @@ function redo() {
     D = JSON.parse(_redoStack.pop());
     if (typeof renderAll === "function") renderAll();
     if (typeof _autoSave === "function") _autoSave();
+    _updateUndoButtons();
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// AUTO-SAVE / RESTAURATION SESSION
+// CONFIRM DIALOG
 // ═══════════════════════════════════════════════════════════════════════
-
-var _fileHandle = null;
-
-function _autoSave() {
-    var key = _ct().autosaveKey;
-    if (!key) return;
-    try { localStorage.setItem(key, JSON.stringify(D)); } catch(e) { showStatus(t("alert_storage_full")); }
-}
-
-function _loadAutoSave() {
-    var key = _ct().autosaveKey;
-    if (!key) return false;
-    try {
-        var raw = localStorage.getItem(key);
-        if (!raw) return false;
-        D = JSON.parse(raw);
-        return true;
-    } catch(e) { return false; }
-}
-
-function _checkAutoSaveBanner() {
-    var key = _ct().autosaveKey;
-    if (!key) return;
-    try {
-        var raw = localStorage.getItem(key);
-        if (!raw) return;
-        var parsed = JSON.parse(raw);
-        var societe = (_ct().getSociete ? _ct().getSociete.call(null, parsed) : parsed.meta && parsed.meta.societe) || t("session_no_name");
-        var date = (_ct().getDate ? _ct().getDate.call(null, parsed) : parsed.meta && parsed.meta.date_evaluation) || "";
-        var label = societe + (date ? " — " + date : "");
-        var banner = document.createElement("div");
-        banner.className = "restore-banner";
-        banner.id = "restore-banner";
-        banner.innerHTML =
-            '<span>&#128190; ' + t("session_found", {label: esc(label)}) + '</span>'
-            + '<button class="btn-restore" data-click="_restoreSession">' + t("btn_restore") + '</button>'
-            + '<button class="btn-discard" data-click="_discardSession">' + t("btn_discard") + '</button>';
-        document.body.insertBefore(banner, document.querySelector(".app-layout"));
-        var layout = document.querySelector(".app-layout");
-        if (layout) layout.classList.add("with-banner");
-    } catch(e) {}
-}
-
-function _restoreSession() {
-    if (_loadAutoSave()) {
-        _initDataAndRender(function() { showStatus(t("status_session_restored")); });
-    }
-    _dismissBanner();
-}
-
-function _discardSession() {
-    var key = _ct().autosaveKey;
-    if (key) try { localStorage.removeItem(key); } catch(e) {}
-    _dismissBanner();
-}
-
-function _dismissBanner() {
-    var b = document.getElementById("restore-banner");
-    if (b) b.remove();
-    var layout = document.querySelector(".app-layout");
-    if (layout) layout.classList.remove("with-banner");
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// FICHIERS JSON (save / load / new)
-// ═══════════════════════════════════════════════════════════════════════
-
-function newAnalysis() {
-    var lbl = t(_ct().labelKey || "analysis");
-    if (!confirm(t("confirm_new", {label: lbl}))) return;
-    _fileHandle = null;
-    var initVar = _ct().initDataVar || "CT_INIT_DATA";
-    D = JSON.parse(JSON.stringify(window[initVar] || {}));
-    _initDataAndRender(function() {
-        _autoSave();
-        showStatus(t("status_new", {label: lbl}));
-    });
-}
-
-// Mot de passe du fichier courant (en mémoire uniquement)
-var _filePwd = null;
-
-// Charger un buffer (chiffré ou non) et retourner l'objet JSON
-async function _loadBuffer(buffer, filename) {
-    var bytes = new Uint8Array(buffer);
-    var jsonStr;
-    if (_isEncrypted(bytes)) {
-        var pwd = await _promptPassword(t("pwd_title_encrypted_file"), false);
-        if (!pwd) return null;
-        try {
-            jsonStr = await _decryptData(bytes, pwd);
-            _filePwd = pwd;
-        } catch(e) {
-            alert(t("alert_wrong_password"));
-            return null;
-        }
-    } else {
-        jsonStr = new TextDecoder().decode(bytes);
-        _filePwd = null;
-    }
-    if (jsonStr.length > 10000000) throw new Error("File too large (>10MB)");
-    var parsed = JSON.parse(jsonStr);
-    D = parsed;
-    return true;
-}
-
-function loadJSON(event) {
-    var file = event.target.files[0];
-    if (!file) return;
-    var reader = new FileReader();
-    reader.onload = async function(e) {
-        try {
-            var ok = await _loadBuffer(e.target.result, file.name);
-            if (!ok) return;
-            _fileHandle = null;
-            _initDataAndRender(function() {
-                _autoSave();
-                showStatus(t("status_file_opened", {name: file.name}));
-            });
-        } catch(err) {
-            alert(t("alert_load_error", {msg: err.message}));
-        }
-    };
-    reader.readAsArrayBuffer(file);
-    event.target.value = "";
-}
-
-async function openFile() {
-    if (window.showOpenFilePicker) {
-        try {
-            var handles = await window.showOpenFilePicker({
-                types: [{ description: "JSON", accept: { "application/json": [".json", ".enc"] } }],
-                multiple: false
-            });
-            var handle = handles[0];
-            var file = await handle.getFile();
-            var ok = await _loadBuffer(await file.arrayBuffer(), file.name);
-            if (!ok) return;
-            _fileHandle = handle;
-            _initDataAndRender(function() {
-                _autoSave();
-                showStatus(t("status_file_opened", {name: file.name}));
-            });
-        } catch(e) {
-            if (e.name !== "AbortError") alert(t("alert_open_error", {msg: e.message}));
-        }
-    } else {
-        document.getElementById("file-input").click();
-    }
-}
-
-// Sérialiser D en contenu fichier (chiffré ou non)
-async function _serializeForSave() {
-    var jsonStr = JSON.stringify(D, null, 2);
-    if (_filePwd) {
-        var encrypted = await _encryptData(jsonStr, _filePwd);
-        return new Blob([encrypted], { type: "application/octet-stream" });
-    }
-    return new Blob([jsonStr], { type: "application/json" });
-}
-
-async function quickSaveJSON() {
-    if (_fileHandle) {
-        try {
-            var blob = await _serializeForSave();
-            var writable = await _fileHandle.createWritable();
-            await writable.write(blob);
-            await writable.close();
-            showStatus(t("status_saved") + (_filePwd ? t("status_saved_encrypted") : ""));
-            return;
-        } catch(e) {}
-    }
-    await saveJSON();
-}
 
 // Custom confirm dialog using the confirm-overlay (Oui/Non buttons, i18n)
 function _confirmDialog(title, body) {
@@ -602,69 +569,6 @@ function _confirmDialog(title, body) {
         document.getElementById("confirm-non").onclick = function() { cleanup(); resolve(false); };
     });
 }
-
-async function saveJSON() {
-    // Ask whether to encrypt
-    var wantEncrypt = await _confirmDialog(t("save_encrypt_prompt"));
-    if (wantEncrypt) {
-        var pwd = await _promptPassword(t("pwd_title_choose_file"), true);
-        if (!pwd) return; // user cancelled
-        _filePwd = pwd;
-    } else {
-        _filePwd = null;
-    }
-
-    var prefix = _ct().filePrefix || "Export";
-    var societe = (_ct().getSociete ? _ct().getSociete.call(null, D) : D.meta && D.meta.societe) || prefix;
-    var scope = _ct().getScope ? _ct().getScope.call(null, D) : "";
-    if (scope) societe = societe + "-" + scope;
-    societe = societe.replace(/[\/\\:*?"<>|]/g, "_").trim();
-    var ext = _filePwd ? ".enc" : ".json";
-    var blob = await _serializeForSave();
-    if (window.showSaveFilePicker) {
-        try {
-            var handle = await window.showSaveFilePicker({
-                suggestedName: societe + ext,
-                types: [{ description: "JSON", accept: { "application/json": [".json", ".enc"] } }]
-            });
-            var writable = await handle.createWritable();
-            await writable.write(blob);
-            await writable.close();
-            _fileHandle = handle;
-            showStatus(t("status_saved_name", {name: handle.name}) + (_filePwd ? t("status_saved_encrypted") : ""));
-        } catch(e) {
-            if (e.name !== "AbortError") alert(t("alert_save_error", {msg: e.message}));
-        }
-    } else {
-        var a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = societe + ext;
-        a.click();
-        URL.revokeObjectURL(a.href);
-        showStatus(t("status_downloaded") + (_filePwd ? t("status_saved_encrypted") : ""));
-    }
-}
-
-// Activer/désactiver le chiffrement du fichier
-async function enableFileEncryption() {
-    var pwd = await _promptPassword(t("pwd_title_choose_file"), true);
-    if (!pwd) return;
-    _filePwd = pwd;
-    showStatus(t("status_encryption_on"));
-}
-
-function disableFileEncryption() {
-    _filePwd = null;
-    showStatus(t("status_encryption_off"));
-}
-
-// Ctrl+S
-document.addEventListener("keydown", function(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-        e.preventDefault();
-        if (typeof quickSaveJSON === "function") quickSaveJSON();
-    }
-});
 
 // Ctrl+Z / Ctrl+Y
 document.addEventListener("keydown", function(e) {
@@ -765,124 +669,153 @@ function _promptPassword(title, confirmMode) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// SNAPSHOTS (localStorage, chiffrement optionnel)
+// RISK MATRIX COMPONENT (parametrable SVG heatmap)
 // ═══════════════════════════════════════════════════════════════════════
 
-var _snapPwd = null;
-var SNAP_ENC_PREFIX = "ENC:";
-var SNAP_MAX = 20;
+var _ctMatrixCounter = 0;
 
-function _getSnapKey() { return (_ct().autosaveKey || "ct") + "_snapshots"; }
-
-async function _getSnapshots() {
-    try {
-        var raw = localStorage.getItem(_getSnapKey());
-        if (!raw) return [];
-        if (raw.startsWith(SNAP_ENC_PREFIX)) {
-            if (!_snapPwd) {
-                _snapPwd = await _promptPassword(t("pwd_title_snap_encrypted"), false);
-                if (!_snapPwd) return [];
-            }
-            try {
-                var b64 = raw.slice(SNAP_ENC_PREFIX.length);
-                var bytes = Uint8Array.from(atob(b64), function(c) { return c.charCodeAt(0); });
-                var decrypted = await _decryptData(bytes, _snapPwd);
-                return JSON.parse(decrypted);
-            } catch(e) {
-                _snapPwd = null;
-                alert(t("alert_wrong_snap_password"));
-                return [];
-            }
-        }
-        return JSON.parse(raw);
-    } catch(e) { return []; }
-}
-
-async function _saveSnapshots(snaps) {
-    try {
-        var json = JSON.stringify(snaps);
-        if (_snapPwd) {
-            var encrypted = await _encryptData(json, _snapPwd);
-            var b64 = btoa(String.fromCharCode.apply(null, encrypted));
-            localStorage.setItem(_getSnapKey(), SNAP_ENC_PREFIX + b64);
-        } else {
-            localStorage.setItem(_getSnapKey(), json);
-        }
-    } catch(e) { alert(t("alert_storage_full")); }
-}
-
-function _isSnapEncrypted() {
-    try {
-        var raw = localStorage.getItem(_getSnapKey());
-        return raw ? raw.startsWith(SNAP_ENC_PREFIX) : false;
-    } catch(e) { return false; }
-}
-
-async function createSnapshot() {
-    var name = prompt(t("snap_prompt_name"), new Date().toLocaleString(_locale === "en" ? "en-GB" : "fr-FR"));
-    if (!name) return;
-    var snaps = await _getSnapshots();
-    while (snaps.length >= SNAP_MAX) snaps.shift();
-    var societe = _ct().getSociete ? _ct().getSociete(D) : "";
-    snaps.push({ name: name, date: new Date().toISOString(), societe: societe, data: JSON.stringify(D) });
-    await _saveSnapshots(snaps);
-    showStatus(t("status_snap_created", {name: name}));
-    if (typeof renderHistory === "function") renderHistory();
-}
-
-async function restoreSnapshot(idx) {
-    var snaps = await _getSnapshots();
-    if (idx < 0 || idx >= snaps.length) return;
-    if (!confirm(t("confirm_restore_snap", {name: snaps[idx].name}))) return;
-    _saveState();
-    D = JSON.parse(snaps[idx].data);
-    _initDataAndRender(function() { _autoSave(); });
-}
-
-async function deleteSnapshot(idx) {
-    var snaps = await _getSnapshots();
-    if (idx < 0 || idx >= snaps.length) return;
-    if (!confirm(t("confirm_delete_snap", {name: snaps[idx].name}))) return;
-    snaps.splice(idx, 1);
-    await _saveSnapshots(snaps);
-    if (typeof renderHistory === "function") renderHistory();
-    showStatus(t("status_snap_deleted"));
-}
-
-async function exportSnapshot(idx) {
-    var snaps = await _getSnapshots();
-    if (idx < 0 || idx >= snaps.length) return;
-    var blob = new Blob([snaps[idx].data], {type: "application/json"});
-    var a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = snaps[idx].name.replace(/[^a-zA-Z0-9]/g, "_") + ".json";
-    a.click();
-    URL.revokeObjectURL(a.href);
-}
-
-async function enableSnapEncryption() {
-    var pwd = await _promptPassword(t("pwd_title_choose_snap"), true);
-    if (!pwd) return;
-    _snapPwd = pwd;
-    var snaps = await _getSnapshots();
-    await _saveSnapshots(snaps);
-    showStatus(t("status_snap_encrypted"));
-    if (typeof renderHistory === "function") renderHistory();
-}
-
-async function disableSnapEncryption() {
-    if (!confirm(t("confirm_decrypt_snaps"))) return;
-    var snaps = await _getSnapshots();
-    _snapPwd = null;
-    await _saveSnapshots(snaps);
-    showStatus(t("status_encryption_off"));
-    if (typeof renderHistory === "function") renderHistory();
-}
-
-// Masquer "Enregistrer" si File System Access API non disponible
-document.addEventListener("DOMContentLoaded", function() {
-    if (!window.showSaveFilePicker && !window.showOpenFilePicker) {
-        var el = document.getElementById("menu-item-save");
-        if (el) el.style.display = "none";
+/**
+ * Render a parametrable risk matrix (SVG heatmap with dots and tooltips).
+ *
+ * @param {Object} opts
+ * @param {number} opts.levels       Number of levels per axis (4 or 5, default 5)
+ * @param {string} opts.xLabel       X-axis label (default "Impact")
+ * @param {string} opts.yLabel       Y-axis label (default "Vraisemblance")
+ * @param {string[]} [opts.xLabels]  Per-level X labels (e.g. ["Neg.","Min.","Mod.","Maj.","Crit."])
+ * @param {string[]} [opts.yLabels]  Per-level Y labels
+ * @param {Object} opts.grid         Data: { "x-y": [{id, label, detail}], ... }
+ * @param {Function} [opts.tooltipFn] Custom tooltip renderer: fn(items) → HTML string
+ * @param {string[][]} [opts.colors] Custom color matrix (levels×levels), bottom-left to top-right
+ * @param {Function}  [opts.colorFn] Custom color function: fn(x, y) → color string (overrides colors matrix)
+ * @param {Object[]} [opts.legend]   Custom legend: [{label, color}]
+ * @returns {string} HTML string (SVG + legend + tooltip div)
+ */
+function ctRenderMatrix(opts) {
+    var N = opts.levels || 5;
+    var yLabelsArr = opts.yLabels || [];
+    var maxYLen = 0;
+    for (var _i = 0; _i < yLabelsArr.length; _i++) {
+        var _l = String(yLabelsArr[_i] || "").length;
+        if (_l > maxYLen) maxYLen = _l;
     }
-});
+    // Margins: left (Y axis label 14px + gap + tick labels), bottom (X tick labels + axis label)
+    var ML = Math.max(58, 28 + maxYLen * 5.5);  // left margin: axis label + tick labels
+    var MB = 32;  // bottom margin
+    var MT = 4;   // top margin
+    var gridW = N * 55;
+    var gridH = N * 50;
+    var W = ML + gridW + 4;
+    var H = MT + gridH + MB;
+    var cellW = gridW / N, cellH = gridH / N;
+
+    var colors = opts.colors || (N === 4 ? CT_COLORS.matrix4 : CT_COLORS.matrix5);
+    var colorFn = opts.colorFn || null;
+
+    var defaultLegend = [
+        {label: t("matrix.low") || "Faible", color: "#dcfce7"},
+        {label: t("matrix.moderate") || "Modere", color: "#fef9c3"},
+        {label: t("matrix.significant") || "Significatif", color: "#fed7aa"},
+        {label: t("matrix.high") || "Eleve", color: "#fecaca"},
+        {label: t("matrix.critical") || "Critique", color: "#fca5a5"},
+        {label: t("matrix.extreme") || "Extreme", color: "#ef4444"}
+    ];
+    var legend = opts.legend || defaultLegend;
+
+    var matrixId = "ct-matrix-" + (++_ctMatrixCounter);
+    var grid = opts.grid || {};
+    var xLabel = opts.xLabel || t("matrix.x") || "Impact";
+    var yLabel = opts.yLabel || t("matrix.y") || "Vraisemblance";
+    var xLabels = opts.xLabels || null;
+    var yLabels = opts.yLabels || null;
+
+    var svg = '<div style="display:flex;flex-direction:column;align-items:center"><svg viewBox="-14 0 ' + (W + 14) + ' ' + H + '" style="width:100%;max-width:420px;overflow:visible">';
+
+    // Background cells
+    for (var row = 0; row < N; row++) {
+        for (var col = 0; col < N; col++) {
+            var x = ML + col * cellW;
+            var y = MT + (N - 1 - row) * cellH;
+            var fill = colorFn ? colorFn(col + 1, row + 1) : ((colors[row] && colors[row][col]) || "#f1f5f9");
+            svg += '<rect x="' + x + '" y="' + y + '" width="' + cellW + '" height="' + cellH + '" fill="' + fill + '" stroke="white" stroke-width="1"/>';
+        }
+    }
+
+    // Dots
+    var dots = [];
+    for (var k in grid) {
+        var parts = k.split("-");
+        var cx_val = parseInt(parts[0]);
+        var cy_val = parseInt(parts[1]);
+        var items = grid[k];
+        if (!items || !items.length) continue;
+        var cx = ML + (cx_val - 1) * cellW + cellW / 2;
+        var cy = MT + (N - cy_val) * cellH + cellH / 2;
+        var dotId = matrixId + "-" + cx_val + "-" + cy_val;
+        var r = Math.min(14, 8 + items.length * 2);
+        svg += '<circle id="' + dotId + '" cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="rgba(37,99,235,0.8)" stroke="white" stroke-width="1.5" style="cursor:pointer"/>';
+        svg += '<text x="' + cx + '" y="' + (cy + 4) + '" text-anchor="middle" fill="white" font-size="10" font-weight="700" style="pointer-events:none">' + items.length + '</text>';
+        dots.push({id: dotId, items: items});
+    }
+
+    // X axis label (bottom center)
+    svg += '<text x="' + (ML + gridW / 2) + '" y="' + (H - 2) + '" text-anchor="middle" font-size="10" fill="#64748b">' + esc(xLabel) + '</text>';
+    // Y axis label (left, rotated)
+    var yCenter = MT + gridH / 2;
+    svg += '<text x="6" y="' + yCenter + '" text-anchor="middle" font-size="9" fill="#64748b" transform="rotate(-90,6,' + yCenter + ')">' + esc(yLabel) + '</text>';
+
+    // Tick labels
+    for (var n = 1; n <= N; n++) {
+        var xLbl = xLabels ? (xLabels[n - 1] || n) : n;
+        var yLbl = yLabels ? (yLabels[n - 1] || n) : n;
+        // X ticks below grid
+        svg += '<text x="' + (ML + (n - 1) * cellW + cellW / 2) + '" y="' + (MT + gridH + 14) + '" text-anchor="middle" font-size="9" fill="#94a3b8">' + esc(String(xLbl)) + '</text>';
+        // Y ticks left of grid
+        svg += '<text x="' + (ML - 5) + '" y="' + (MT + (N - n) * cellH + cellH / 2 + 3) + '" text-anchor="end" font-size="8" fill="#94a3b8">' + esc(String(yLbl)) + '</text>';
+    }
+
+    svg += '</svg>';
+
+    // Legend
+    svg += '<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:4px;font-size:0.7em">';
+    legend.forEach(function(l) {
+        svg += '<span style="display:flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:2px;background:' + l.color + ';border:1px solid #e5e7eb"></span>' + esc(l.label) + '</span>';
+    });
+    svg += '</div>';
+
+    // Tooltip div
+    svg += '<div id="' + matrixId + '-tip" style="display:none;position:fixed;background:white;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:400;max-width:300px;font-size:0.82em"></div>';
+
+    // Wire tooltips after render
+    var tooltipFn = opts.tooltipFn || function(items) {
+        return items.map(function(item) {
+            return '<div style="padding:2px 0">' + esc(item.label || item.id || "") + '</div>';
+        }).join("");
+    };
+
+    setTimeout(function() {
+        dots.forEach(function(dot) {
+            var el = document.getElementById(dot.id);
+            var tip = document.getElementById(matrixId + "-tip");
+            if (!el || !tip) return;
+            el.addEventListener("mouseenter", function(e) {
+                tip.innerHTML = tooltipFn(dot.items);
+                tip.style.display = "block";
+                tip.style.left = (e.clientX + 12) + "px";
+                tip.style.top = (e.clientY - tip.offsetHeight - 4) + "px";
+            });
+            el.addEventListener("mousemove", function(e) {
+                tip.style.left = (e.clientX + 12) + "px";
+                tip.style.top = (e.clientY - tip.offsetHeight - 4) + "px";
+            });
+            el.addEventListener("mouseleave", function() { tip.style.display = "none"; });
+        });
+    }, 50);
+
+    svg += '</div>';  // close centering wrapper
+
+    return svg;
+}
+
+// Persistence layer loaded separately:
+// - cisotoolbox_local.js  (localStorage autosave, file I/O, snapshots — for standalone frontend apps)
+// - cisotoolbox_backend.js (no-ops for autosave, file I/O for import/export — for backend apps)

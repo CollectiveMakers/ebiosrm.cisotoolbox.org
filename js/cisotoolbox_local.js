@@ -24,7 +24,9 @@ function _loadAutoSave() {
     try {
         var raw = localStorage.getItem(key);
         if (!raw) return false;
-        D = JSON.parse(raw);
+        var parsed = JSON.parse(raw);
+        Object.keys(D).forEach(function(k) { delete D[k]; });
+        Object.assign(D, parsed);
         return true;
     } catch(e) { return false; }
 }
@@ -81,7 +83,9 @@ function newAnalysis() {
     if (!confirm(t("confirm_new", {label: lbl}))) return;
     _fileHandle = null;
     var initVar = _ct().initDataVar || "CT_INIT_DATA";
-    D = JSON.parse(JSON.stringify(window[initVar] || {}));
+    var fresh = JSON.parse(JSON.stringify(window[initVar] || {}));
+    Object.keys(D).forEach(function(k) { delete D[k]; });
+    Object.assign(D, fresh);
     _initDataAndRender(function() {
         _autoSave();
         showStatus(t("status_new", {label: lbl}));
@@ -111,7 +115,10 @@ async function _loadBuffer(buffer, filename) {
     }
     if (jsonStr.length > 10000000) throw new Error("File too large (>10MB)");
     var parsed = JSON.parse(jsonStr);
-    D = parsed;
+    delete parsed.__proto__; delete parsed.constructor; delete parsed.prototype;
+    // Clear D and merge parsed data (preserves the let D reference in app code)
+    Object.keys(D).forEach(function(k) { delete D[k]; });
+    Object.assign(D, parsed);
     return true;
 }
 
@@ -318,7 +325,9 @@ async function restoreSnapshot(idx) {
     if (idx < 0 || idx >= snaps.length) return;
     if (!confirm(t("confirm_restore_snap", {name: snaps[idx].name}))) return;
     _saveState();
-    D = JSON.parse(snaps[idx].data);
+    var restored = JSON.parse(snaps[idx].data);
+    Object.keys(D).forEach(function(k) { delete D[k]; });
+    Object.assign(D, restored);
     _initDataAndRender(function() { _autoSave(); });
 }
 

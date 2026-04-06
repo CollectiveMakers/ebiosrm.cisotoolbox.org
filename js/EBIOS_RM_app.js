@@ -121,7 +121,7 @@ function _newOVFor(idx) {
 // ═══════════════════════════════════════════════════════════════════════
 function computeMenace(d, p, m, c) {
     if (!d || !p || !m || !c) return null;
-    return (p * d) / (m * c);
+    return Math.round((p * d) / (m * c) * 100) / 100;
 }
 function computeExposition(menace) {
     if (menace === null) return "";
@@ -154,7 +154,6 @@ function _expoColorName(expo) {
     m[t("ebios.expo.faible")] = "green";
     return m[expo] || "gray";
 }
-function expoColor(expo) { return ctColor(_expoColorName(expo)).vivid; }
 function _expoBadge(text) { return ctBadge(text, _expoColorName(text)); }
 
 function gravColor(n) { return ctColorLevel(n, 5).bg; }
@@ -179,10 +178,13 @@ function _statutBadge(text) {
     var m = {"Terminé":"green", "En cours":"orange", "À étudier":"red", "Planifié":"blue"};
     return ctBadge(text, m[text] || "gray");
 }
+var _effColors = (function() {
+    var r = ctColor("red"), o = ctColor("orange"), g = ctColor("green");
+    return {"Absent":r, "Partiel":o, "Efficace":g, "Partial":o, "Effective":g};
+})();
 function _effBadge(count, text, type) {
     if (!count) return "";
-    var m = {"Absent":"red", "Partiel":"orange", "Efficace":"green"};
-    var c = ctColor(m[type] || "gray");
+    var c = _effColors[type] || ctColor("gray");
     return '<span class="badge" style="background:' + c.bg + ';color:' + c.txt + '">' + count + ' ' + esc(text) + '</span>';
 }
 function _origineBadge(text) {
@@ -599,89 +601,37 @@ function delRow(section, idx) {
     _autoSave();
     showStatus(t("ebios.status.line_deleted"));
 }
-// Structure de navigation : atelier → sous-onglets
-function _buildNAV() {
-    return {
-        synth: [{id:"synth", label:t("ebios.nav.synth")}],
-        a1: [
-            {id:"context", label:t("ebios.nav.context")},
-            {id:"vm", label:t("ebios.nav.vm")},
-            {id:"bs", label:t("ebios.nav.bs")},
-            {id:"er", label:t("ebios.nav.er")},
-            {id:"socle", label:t("ebios.nav.socle")},
-        ],
-        a2: [{id:"srov", label:t("ebios.nav.srov")}],
-        a3: [
-            {id:"pp", label:t("ebios.nav.pp")},
-            {id:"ss", label:t("ebios.nav.ss")},
-            {id:"eco", label:t("ebios.nav.eco")},
-        ],
-        a4: [{id:"sop", label:t("ebios.nav.sop")},{id:"sop-synth", label:t("ebios.nav.sop_synth")}],
-        a5: [
-            {id:"measures", label:t("ebios.nav.measures")},
-            {id:"residuals", label:t("ebios.nav.residuals")},
-        ],
-        history: [{id:"history", label:t("ebios.nav.history")}],
-    };
-}
-var NAV = _buildNAV();
+// Navigation — flat panel selection (like Vendor/Compliance/Audit)
+let _currentPanel = "synth";
 
-let currentAtelier = "synth";
+var _PANEL_RENDER = {
+    synth: function() { renderSynthesis(); },
+    context: function() { renderContext(); },
+    vm: function() {},
+    bs: function() {},
+    er: function() {},
+    socle: function() { renderSocle(); },
+    srov: function() { renderSROV(); },
+    pp: function() { renderPP(); },
+    ss: function() { renderSS(); },
+    eco: function() { renderEco(); renderEcoMap(); },
+    sop: function() { renderSOP(); },
+    "sop-synth": function() { renderSOPSynth(); },
+    measures: function() { renderMeasures(); },
+    residuals: function() { renderResiduals(); },
+    history: function() { renderHistory(); },
+};
 
-function selectAtelier(atelier) {
-    currentAtelier = atelier;
-    // Fermer la sidebar mobile
+function selectPanel(id) {
+    _currentPanel = id;
     document.querySelector(".sidebar").classList.remove("open");
-    // Mettre à jour la sidebar
-    document.querySelectorAll(".sidebar-item").forEach(s => {
-        s.classList.remove("active");
-        var args = s.getAttribute("data-args");
-        if (args) { try { if (JSON.parse(args)[0] === atelier) s.classList.add("active"); } catch(e) {} }
-    });
-    // Générer les sous-onglets
-    const subtabs = NAV[atelier] || [];
-    const bar = document.getElementById("subtab-bar");
-    if (subtabs.length <= 1) {
-        bar.innerHTML = "";
-    } else {
-        bar.innerHTML = subtabs.map((st, i) =>
-            `<div class="subtab ${i===0?'active':''}" data-click="switchSubtab" data-args='${_da(st.id)}'>${st.label}</div>`
-        ).join("");
-    }
-    // Afficher le premier panel de cet atelier
-    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
-    if (subtabs.length > 0) {
-        const panel = document.getElementById("panel-" + subtabs[0].id);
-        if (panel) panel.classList.add("active");
-    }
-    // Rendu spécifique par atelier
-    if (atelier === "synth") renderSynthesis();
-    if (atelier === "a1") { renderContext(); renderSocle(); }
-    if (atelier === "a2") renderSROV();
-    if (atelier === "a3") { renderPP(); renderSS(); renderEco(); renderEcoMap(); }
-    if (atelier === "a4") { renderSOP(); renderSOPSynth(); }
-    if (atelier === "a5") { renderMeasures(); renderResiduals(); }
-    if (atelier === "history") renderHistory();
+    _updateSidebarAccordion(id);
+    document.querySelectorAll(".tab-panel").forEach(function(p) { p.classList.remove("active"); });
+    var panel = document.getElementById("panel-" + id);
+    if (panel) panel.classList.add("active");
+    if (_PANEL_RENDER[id]) _PANEL_RENDER[id]();
 }
 
-function switchSubtab(panelId) {
-    // Masquer tous les panels de l'atelier courant
-    const subtabs = NAV[currentAtelier] || [];
-    subtabs.forEach(st => {
-        const p = document.getElementById("panel-" + st.id);
-        if (p) p.classList.remove("active");
-    });
-    // Afficher le panel demandé
-    const panel = document.getElementById("panel-" + panelId);
-    if (panel) panel.classList.add("active");
-    // Mettre à jour les sous-onglets actifs
-    document.querySelectorAll(".subtab").forEach(t => t.classList.remove("active"));
-    document.querySelectorAll(".subtab").forEach(t => {
-        if (t.getAttribute("onclick") && t.getAttribute("onclick").includes("'" + panelId + "'"))
-            t.classList.add("active");
-    });
-    if (panelId === "eco") renderEcoMap();
-}
 
 // ═══════════════════════════════════════════════════════════════════════
 // RENDU
@@ -770,7 +720,8 @@ function renderContext() {
     gh += '</tr></thead><tbody>';
     D.gravity_scale.forEach((g, i) => {
         const gc = gravColor(g.niveau);
-        gh += `<tr><td class="ta-c"><span style="display:inline-block;width:28px;height:28px;border-radius:50%;background:${gc};color:white;text-align:center;line-height:28px;font-weight:700">${g.niveau}</span></td>`;
+        const gtc = gravTextColor(g.niveau);
+        gh += `<tr><td class="ta-c"><span style="display:inline-block;width:28px;height:28px;border-radius:50%;background:${gc};color:${gtc};text-align:center;line-height:28px;font-weight:700">${g.niveau}</span></td>`;
         gh += `<td><input type="text" value="${esc(g.label)}" class="w-full fw-600" data-change="_setGravityField" data-args='${_da(i,"label",true)}' data-pass-value></td>`;
         gh += `<td><textarea rows="2" class="w-full fs-sm" data-change="_setGravityField" data-args='${_da(i,"description",false)}' data-pass-value>${esc(g.description||"")}</textarea></td>`;
         for (const ic of impactCols) {
@@ -959,13 +910,11 @@ function renderSocleRefs() {
             const ud = rows[m.ref] || {conformite: "", ecart: "", mesures_prevues: ""};
             const conf = ud.conformite;
             const confVal = (conf === "" || conf === null) ? 0 : parseInt(conf) || 0;
-            const confColor = confVal >= 80 ? "#22c55e" : confVal > 0 ? "#f97316" : "#ef4444";
+            const confColor = confVal >= 80 ? "#16a34a" : confVal > 0 ? "#f59e0b" : "#dc2626";
             const statut = socleStatut(conf);
             const prio = soclePriorite(conf);
             var _sc = {}; _sc[t("ebios.socle.applique")]="var(--green)"; _sc[t("ebios.socle.partiel")]="var(--yellow)"; _sc[t("ebios.socle.non_applique")]="var(--red)";
-            const statutColor = _sc[statut] || "#ccc";
             var _pc = {}; _pc[t("ebios.socle.priorite_haute")]="var(--red)"; _pc[t("ebios.socle.priorite_moyenne")]="var(--yellow)"; _pc[t("ebios.socle.priorite_basse")]="var(--green)";
-            const prioColor = _pc[prio] || "#ccc";
             const sliderId = `slbl-ref-${fwId}-${i}`;
             h += `<tr>`;
             h += `<td><strong>${esc(m.ref)}</strong></td>`;
@@ -1046,6 +995,116 @@ function renderPP() {
     renderPPMap();
 }
 
+function triggerImportVendor() {
+    document.getElementById("vendor-import-input").click();
+}
+
+function importVendorPP(event) {
+    var file = event.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            var data = JSON.parse(e.target.result);
+            // Support 2 formats: pp_export (from Vendor "Exporter PP") or full Vendor save (vendors array)
+            var ppList = [];
+            if (data.pp_export) {
+                // Format: {pp_export: [{id, nom, type, dependance, penetration, maturite, confiance}]}
+                ppList = data.pp_export;
+            } else if (data.vendors) {
+                // Format: full Vendor save file with vendors array
+                ppList = data.vendors.map(function(v) {
+                    var ex = v.exposure || {};
+                    var cls = v.classification || {};
+                    var dep = ex.dependance || 0;
+                    var pen = ex.penetration || 0;
+                    if (!dep && cls.ops_impact != null) {
+                        dep = Math.round(((cls.ops_impact || 0) + (cls.processes || 0) + (cls.replace_difficulty || 0)) / 3 * 10) / 10;
+                    }
+                    if (!pen && cls.data_sensitivity != null) {
+                        pen = Math.round(((cls.data_sensitivity || 0) + (cls.integration || 0) + (cls.regulatory_impact || 0)) / 3 * 10) / 10;
+                    }
+                    return {
+                        nom: v.name, type: v.sector || "Prestataire",
+                        dependance: dep, penetration: pen, maturite: ex.maturite || 0, confiance: ex.confiance || 0,
+                        measures: (v.measures || []).map(function(m) {
+                            return { mesure: m.mesure || "", details: m.details || "", type: m.type || "", statut: m.statut || "", responsable: m.responsable || "", echeance: m.echeance || "" };
+                        })
+                    };
+                });
+            }
+            if (!ppList.length) {
+                showStatus(t("ebios.import_vendor.no_vendors"));
+                return;
+            }
+            _saveState();
+            var added = 0, skipped = 0, measureCount = 0;
+            var clamp = function(v) { var n = Math.round(v); return n >= 1 ? Math.min(n, 4) : ""; };
+            ppList.forEach(function(v) {
+                var nom = v.nom || v.name || "";
+                var exists = D.pp.some(function(p) { return p.nom === nom; });
+                if (exists) { skipped++; return; }
+                var cat = "Prestataire";
+                var type = v.type || "";
+                if (/client/i.test(type)) cat = "Client";
+                else if (/partenaire|partner/i.test(type)) cat = "Partenaire";
+                var id = nextId("pp");
+                D.pp.push({
+                    id: id,
+                    nom: nom,
+                    categorie: cat,
+                    type: type,
+                    dependance: clamp(v.dependance || 0),
+                    penetration: clamp(v.penetration || 0),
+                    maturite: clamp(v.maturite || 0),
+                    confiance: clamp(v.confiance || 0),
+                    bs: ""
+                });
+                // Import associated measures as "Écosystème" origin
+                var vMeasures = v.measures || [];
+                var existantes = [], complementaires = [];
+                var statutMap = {"termine":"Terminé","en_cours":"En cours","planifie":"Planifié","a_lancer":"À lancer"};
+                vMeasures.forEach(function(m) {
+                    var mId = nextId("measures");
+                    var statut = statutMap[m.statut] || m.statut || "À lancer";
+                    D.measures.push({
+                        id: mId,
+                        mesure: m.mesure || "",
+                        details: (m.details || "") + (nom ? "\n[Vendor: " + nom + "]" : ""),
+                        origine: "Écosystème",
+                        type: m.type || "",
+                        sop: "", phase: "", effet: m.effet || "", ref_socle: "",
+                        responsable: m.responsable || "",
+                        echeance: m.echeance || "",
+                        cout: "",
+                        statut: statut
+                    });
+                    var ref = mId + " - " + (m.mesure || "").substring(0, 50);
+                    if (statut === "Terminé") existantes.push(ref);
+                    else complementaires.push(ref);
+                    measureCount++;
+                });
+                // Create eco entry linking PP to its measures
+                D.eco.push({
+                    pp_id: id + " - " + nom,
+                    mesures_existantes: existantes.join(", "),
+                    mesures_complementaires: complementaires.join(", "),
+                    categorie: "",
+                    dep_resid: "", pen_resid: "", mat_resid: "", conf_resid: ""
+                });
+                added++;
+            });
+            _autoSave();
+            renderPP();
+            showStatus(t("ebios.import_vendor.success", {added: added, skipped: skipped, measures: measureCount}));
+        } catch(err) {
+            showStatus(t("ebios.import_vendor.error", {msg: err.message}));
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = "";
+}
+
 function renderSocle() {
     // Charger les descriptions si besoin, puis re-rendre (pop-in gracieux)
     if (!_descriptionsLoaded) {
@@ -1064,13 +1123,11 @@ function renderSocle() {
     socle.forEach((s, i) => {
         const conf = s.conformite;
         const confVal = (conf === "" || conf === null) ? 0 : parseInt(conf) || 0;
-        const confColor = confVal >= 80 ? "#22c55e" : confVal > 0 ? "#f97316" : "#ef4444";
+        const confColor = confVal >= 80 ? "#16a34a" : confVal > 0 ? "#f59e0b" : "#dc2626";
         const statut = socleStatut(conf);
         const prio = soclePriorite(conf);
         var _sc = {}; _sc[t("ebios.socle.applique")]="var(--green)"; _sc[t("ebios.socle.partiel")]="var(--yellow)"; _sc[t("ebios.socle.non_applique")]="var(--red)";
-            const statutColor = _sc[statut] || "#ccc";
         var _pc = {}; _pc[t("ebios.socle.priorite_haute")]="var(--red)"; _pc[t("ebios.socle.priorite_moyenne")]="var(--yellow)"; _pc[t("ebios.socle.priorite_basse")]="var(--green)";
-            const prioColor = _pc[prio] || "#ccc";
         const sliderId = "slbl-" + section + "-" + i;
         const desc = isAnssi ? _getAnssDesc(s.num) : _getIsoDesc(s.ref || s.num);
         h += `<tr><td>${esc(s[idCol])}</td><td${hd("theme")}>${esc(_rt(s, themeCol))}</td><td${hd("mesure")}><div class="fw-600 mb-4">${esc(_rt(s, "mesure"))}</div>${desc ? `<div class="desc-text">${esc(desc)}</div>` : ""}</td>
@@ -1188,8 +1245,8 @@ function renderSROV() {
         _prioColors[t("ebios.srov.p1")] = "var(--red)";
         _prioColors[t("ebios.srov.p2")] = "var(--orange)";
         _prioColors[t("ebios.srov.non_retenu")] = "var(--yellow)";
-        _prioColors[t("ebios.srov.ecarte")] = "#ccc";
-        const prioColor = _prioColors[prio] || "#ccc";
+        _prioColors[t("ebios.srov.ecarte")] = "#cbd5e1";
+        const prioColor = _prioColors[prio] || "#cbd5e1";
         h += `<tr><td><strong>${esc(s.couple)}</strong></td>
             <td${hd("sr")}>${srSelectWidget(i, s.sr_id)}</td><td${hd("ov")}>${ovSelectWidget(i, s.ov_id)}</td>
             <td${hd("m")}>${sel("srov",i,"motivation",s.motivation,[0,1,2,3,4])}</td>
@@ -1303,8 +1360,8 @@ function _buildEcoSVG(ppList, title) {
     var _cl = t("ebios.eco.clients"), _pa = t("ebios.eco.partenaires"), _pr = t("ebios.eco.prestataires");
     const quads = {};
     quads[_cl] = { a1: 270, a2: 360, color: "#16a34a", rx: CX-R-M, ry: CY-R-M, rw: R+M-8, rh: R+M-8 };
-    quads[_pa] = { a1: 0,   a2: 90,  color: "#9b59b6", rx: CX+8,   ry: CY-R-M, rw: R+M-8, rh: R+M-8 };
-    quads[_pr] = { a1: 180, a2: 270, color: "#7f8c8d", rx: CX-R-M, ry: CY+8,   rw: R+M-8, rh: R+M-8 };
+    quads[_pa] = { a1: 0,   a2: 90,  color: "#7c3aed", rx: CX+8,   ry: CY-R-M, rw: R+M-8, rh: R+M-8 };
+    quads[_pr] = { a1: 180, a2: 270, color: "#94a3b8", rx: CX-R-M, ry: CY+8,   rw: R+M-8, rh: R+M-8 };
 
     let svg = `<svg viewBox="0 0 ${W} ${H}" style="max-width:${W}px;width:100%;height:auto;display:block;margin:0 auto">`;
 
@@ -1319,21 +1376,21 @@ function _buildEcoSVG(ppList, title) {
     }
 
     // Zones concentriques
-    svg += `<circle cx="${CX}" cy="${CY}" r="${R}" fill="#1abc9c" fill-opacity="0.06" stroke="#1abc9c" stroke-width="2" opacity="0.35" />`;
-    svg += `<circle cx="${CX}" cy="${CY}" r="${menaceToR(0.9)}" fill="#f1c40f" fill-opacity="0.07" stroke="#f1c40f" stroke-width="2" opacity="0.45" />`;
-    svg += `<circle cx="${CX}" cy="${CY}" r="${menaceToR(2.5)}" fill="#e74c3c" fill-opacity="0.08" stroke="#e74c3c" stroke-width="2" opacity="0.5" />`;
+    svg += `<circle cx="${CX}" cy="${CY}" r="${R}" fill="#14b8a6" fill-opacity="0.06" stroke="#14b8a6" stroke-width="2" opacity="0.35" />`;
+    svg += `<circle cx="${CX}" cy="${CY}" r="${menaceToR(0.9)}" fill="#eab308" fill-opacity="0.07" stroke="#eab308" stroke-width="2" opacity="0.45" />`;
+    svg += `<circle cx="${CX}" cy="${CY}" r="${menaceToR(2.5)}" fill="#dc2626" fill-opacity="0.08" stroke="#dc2626" stroke-width="2" opacity="0.5" />`;
 
     // Axes
-    svg += `<line x1="${CX}" y1="${CY - R - 5}" x2="${CX}" y2="${CY + R + 5}" stroke="#ccc" stroke-width="0.8" />`;
-    svg += `<line x1="${CX - R - 5}" y1="${CY}" x2="${CX + R + 5}" y2="${CY}" stroke="#ccc" stroke-width="0.8" />`;
+    svg += `<line x1="${CX}" y1="${CY - R - 5}" x2="${CX}" y2="${CY + R + 5}" stroke="#cbd5e1" stroke-width="0.8" />`;
+    svg += `<line x1="${CX - R - 5}" y1="${CY}" x2="${CX + R + 5}" y2="${CY}" stroke="#cbd5e1" stroke-width="0.8" />`;
 
     // Graduations sur l'axe bas-droit (quadrant légende)
     for (let i = 0; i <= maxMenace; i++) {
         const rr = menaceToR(i);
-        svg += `<circle cx="${CX}" cy="${CY}" r="${rr}" fill="none" stroke="#ddd" stroke-width="0.5" stroke-dasharray="3,3" />`;
+        svg += `<circle cx="${CX}" cy="${CY}" r="${rr}" fill="none" stroke="#e2e8f0" stroke-width="0.5" stroke-dasharray="3,3" />`;
         // Label sur la diagonale bas-droit
         const [lx, ly] = degXY(135, rr + 4);
-        svg += `<text x="${lx}" y="${ly - 2}" font-size="13" fill="#555" font-weight="700">${i}</text>`;
+        svg += `<text x="${lx}" y="${ly - 2}" font-size="13" fill="#475569" font-weight="700">${i}</text>`;
     }
 
     // Centre
@@ -1402,8 +1459,8 @@ function _buildEcoSVG(ppList, title) {
     for (const p of allPP) {
         const ex = p.isLeft ? p.px - p.cr - 2 : p.px + p.cr + 2;
         const lx2 = p.isLeft ? p.lx + 2 : p.lx - 2;
-        svg += `<path d="M${ex},${p.py} C${(ex + lx2) / 2},${p.py} ${(ex + lx2) / 2},${p.ly} ${lx2},${p.ly}" fill="none" stroke="#ccc" stroke-width="0.8" />`;
-        svg += `<circle cx="${lx2}" cy="${p.ly}" r="1.5" fill="#ccc" />`;
+        svg += `<path d="M${ex},${p.py} C${(ex + lx2) / 2},${p.py} ${(ex + lx2) / 2},${p.ly} ${lx2},${p.ly}" fill="none" stroke="#cbd5e1" stroke-width="0.8" />`;
+        svg += `<circle cx="${lx2}" cy="${p.ly}" r="1.5" fill="#cbd5e1" />`;
     }
     // Cercles PP
     for (const p of allPP) {
@@ -1412,26 +1469,26 @@ function _buildEcoSVG(ppList, title) {
     // Labels
     for (const p of allPP) {
         const anchor = p.isLeft ? "end" : "start";
-        svg += `<text x="${p.lx}" y="${p.ly + 4}" font-size="9" fill="#333" text-anchor="${anchor}" font-weight="600">${p.labelText}</text>`;
+        svg += `<text x="${p.lx}" y="${p.ly + 4}" font-size="9" fill="#475569" text-anchor="${anchor}" font-weight="600">${p.labelText}</text>`;
     }
 
     // Légende en bas
     const ly = CY + R + M + 20;
-    svg += `<circle cx="60" cy="${ly}" r="10" fill="none" stroke="#e74c3c" stroke-width="4" opacity="0.5" />`;
-    svg += `<text x="76" y="${ly+4}" font-size="10" fill="#555">${t("ebios.eco.zone_danger")}</text>`;
-    svg += `<circle cx="280" cy="${ly}" r="10" fill="none" stroke="#f1c40f" stroke-width="4" opacity="0.5" />`;
-    svg += `<text x="296" y="${ly+4}" font-size="10" fill="#555">${t("ebios.eco.zone_controle")}</text>`;
-    svg += `<circle cx="520" cy="${ly}" r="10" fill="none" stroke="#1abc9c" stroke-width="4" opacity="0.5" />`;
-    svg += `<text x="536" y="${ly+4}" font-size="10" fill="#555">${t("ebios.eco.zone_veille")}</text>`;
+    svg += `<circle cx="60" cy="${ly}" r="10" fill="none" stroke="#dc2626" stroke-width="4" opacity="0.5" />`;
+    svg += `<text x="76" y="${ly+4}" font-size="10" fill="#475569">${t("ebios.eco.zone_danger")}</text>`;
+    svg += `<circle cx="280" cy="${ly}" r="10" fill="none" stroke="#eab308" stroke-width="4" opacity="0.5" />`;
+    svg += `<text x="296" y="${ly+4}" font-size="10" fill="#475569">${t("ebios.eco.zone_controle")}</text>`;
+    svg += `<circle cx="520" cy="${ly}" r="10" fill="none" stroke="#14b8a6" stroke-width="4" opacity="0.5" />`;
+    svg += `<text x="536" y="${ly+4}" font-size="10" fill="#475569">${t("ebios.eco.zone_veille")}</text>`;
 
     const ly2 = ly + 24;
-    svg += `<text x="60" y="${ly2}" font-size="9" fill="#999" font-weight="600">${t("ebios.eco.fiabilite")}</text>`;
+    svg += `<text x="60" y="${ly2}" font-size="9" fill="#94a3b8" font-weight="600">${t("ebios.eco.fiabilite")}</text>`;
     const fiabs = [["#dc2626",t("ebios.eco.fiab_faible"),170],["#f59e0b",t("ebios.eco.fiab_moyenne"),250],["#eab308",t("ebios.eco.fiab_bonne"),340],["#16a34a",t("ebios.eco.fiab_elevee"),420]];
     for (const [c, label, fx] of fiabs) {
         svg += `<circle cx="${fx}" cy="${ly2-3}" r="5" fill="${c}" fill-opacity="0.75" />`;
-        svg += `<text x="${fx+8}" y="${ly2}" font-size="9" fill="#999">${label}</text>`;
+        svg += `<text x="${fx+8}" y="${ly2}" font-size="9" fill="#94a3b8">${label}</text>`;
     }
-    svg += `<text x="500" y="${ly2}" font-size="9" fill="#999" font-weight="600">${t("ebios.eco.diametre")}</text>`;
+    svg += `<text x="500" y="${ly2}" font-size="9" fill="#94a3b8" font-weight="600">${t("ebios.eco.diametre")}</text>`;
 
     svg += '</svg>';
     return svg;
@@ -1447,7 +1504,7 @@ function renderEcoMap() {
         const pr = eco && eco.pen_resid ? eco.pen_resid : pen;
         const mr = eco && eco.mat_resid ? eco.mat_resid : m;
         const cr = eco && eco.conf_resid ? eco.conf_resid : c;
-        const menace = (mr && cr) ? (pr * dr) / (mr * cr) : 0;
+        const menace = computeMenace(dr, pr, mr, cr) || 0;
         return { id: p.id, nom: p.nom, cat: p.categorie || "", menace, fiab: (mr||0)*(cr||0), expo: (dr||0)*(pr||0) };
     });
     el.innerHTML = _buildEcoSVG(ppData, t("ebios.eco.map_after"));
@@ -1458,7 +1515,7 @@ function renderPPMap() {
     if (!el || D.pp.length === 0) { if (el) el.innerHTML = ""; return; }
     const ppData = D.pp.map(p => {
         const d = p.dependance||0, pen = p.penetration||0, m = p.maturite||0, c = p.confiance||0;
-        const menace = (m && c) ? (pen * d) / (m * c) : 0;
+        const menace = computeMenace(d, pen, m, c) || 0;
         return { id: p.id, nom: p.nom, cat: p.categorie || "", menace, fiab: (m||0)*(c||0), expo: (d||0)*(pen||0) };
     });
     el.innerHTML = _buildEcoSVG(ppData, t("ebios.eco.map_initial"));
@@ -1559,8 +1616,8 @@ function renderSOP() {
         const _ec = _effColors[s.efficacite] || {bg:"#f1f5f9",txt:"#64748b"};
         h += '<tr>';
         if (spans[i] > 0) {
-            h += `<td rowspan="${spans[i]}" style="vertical-align:top;font-weight:600;background:#eef3f7">${esc(s.sop)}<br><button class="btn-phase" data-click="addSOPPhase" data-args='${_da(i)}'>${t("ebios.btn.add_phase")}</button></td>`;
-            h += `<td${hd("ss")} rowspan="${spans[i]}" style="vertical-align:top;background:#eef3f7">${refSelect("sop_detail",i,"ss",s.ss,ssOptions())}</td>`;
+            h += `<td rowspan="${spans[i]}" style="vertical-align:top;font-weight:600;background:#f1f5f9">${esc(s.sop)}<br><button class="btn-phase" data-click="addSOPPhase" data-args='${_da(i)}'>${t("ebios.btn.add_phase")}</button></td>`;
+            h += `<td${hd("ss")} rowspan="${spans[i]}" style="vertical-align:top;background:#f1f5f9">${refSelect("sop_detail",i,"ss",s.ss,ssOptions())}</td>`;
         }
         // Phase : numéro auto + nom éditable
         const phaseName = (s.phase||"").replace(/^\d+\.\s*/, "");
@@ -2073,13 +2130,11 @@ function renderSynthesis() {
 
 function renderAll() {
     try {
-        // Rebuild NAV labels on lang change
-        NAV = _buildNAV();
         // Refresh toolbar right (lang toggle + GitHub)
         var _tr = document.getElementById("toolbar-right");
         if (_tr) _tr.innerHTML = _getSettingsButtonHTML() + _getGithubLinkHTML("https://github.com/CollectiveMakers/ebios_rm_webapp");
-        // Re-select current atelier to refresh subtab labels
-        if (typeof currentAtelier !== "undefined") selectAtelier(currentAtelier);
+        // Re-select current panel to refresh content
+        if (typeof _currentPanel !== "undefined") selectPanel(_currentPanel);
         renderContext();
         renderIndicators();
         renderSynthesis();
@@ -2105,26 +2160,6 @@ function renderAll() {
 // ═══════════════════════════════════════════════════════════════════════
 // IMPORT / EXPORT JSON
 // ═══════════════════════════════════════════════════════════════════════
-function toggleHelp(tab) {
-    document.querySelector(".sidebar").classList.remove("open");
-    const overlay = document.getElementById("help-overlay");
-    if (tab && !overlay.classList.contains("open")) {
-        overlay.classList.add("open");
-        switchHelpTab(tab);
-    } else if (tab && overlay.classList.contains("open")) {
-        switchHelpTab(tab);
-    } else {
-        overlay.classList.toggle("open");
-    }
-}
-function switchHelpTab(tab) {
-    document.querySelectorAll(".help-tab").forEach(t => t.classList.remove("active"));
-    document.querySelectorAll(".help-content").forEach(c => c.style.display = "none");
-    const tabEl = document.getElementById("help-tab-" + tab);
-    const contentEl = document.getElementById("help-content-" + tab);
-    if (tabEl) tabEl.classList.add("active");
-    if (contentEl) contentEl.style.display = "block";
-}
 
 // ── Chiffrement AES-GCM via Web Crypto API ──
 // ── Validation JSON import ──
@@ -2863,8 +2898,6 @@ try {
     // Toolbar right: language toggle + GitHub link
     var tr = document.getElementById("toolbar-right");
     if (tr) tr.innerHTML = _getSettingsButtonHTML() + _getGithubLinkHTML("https://github.com/CollectiveMakers/ebios_rm_webapp");
-    // Rebuild NAV with current locale
-    NAV = _buildNAV();
     _initDataAndRender();
     _applyStaticTranslations();
     // Masquer "Enregistrer" si le File System Access API n'est pas disponible

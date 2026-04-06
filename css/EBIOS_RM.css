@@ -11,7 +11,7 @@
 .catalog-search:focus { outline: none; border-color: var(--light-blue); }
 .catalog-card { padding: 6px 14px; cursor: pointer; border-left: 3px solid transparent; transition: all 0.15s; }
 .catalog-card:hover { background: rgba(255,255,255,0.05); }
-.catalog-card.catalog-active { border-left-color: var(--light-blue); background: rgba(52,152,219,0.15); }
+.catalog-card.catalog-active { border-left-color: var(--light-blue); background: rgba(59,130,246,0.15); }
 .catalog-card-name { font-size: 0.82em; font-weight: 600; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .catalog-card-meta { font-size: 0.7em; color: rgba(255,255,255,0.4); display: flex; gap: 8px; margin-top: 1px; }
 .catalog-card-actions { display: none; gap: 2px; margin-top: 2px; }
@@ -70,7 +70,7 @@
 }
 .help-panel .close-help:hover { color: var(--text); }
 .help-panel .help-tip {
-    background: #e8f4fd; border-left: 4px solid var(--light-blue);
+    background: var(--bg-highlight); border-left: 4px solid var(--light-blue);
     padding: 10px 14px; margin: 12px 0; border-radius: 0 6px 6px 0; font-size: 0.85em;
 }
 .help-panel table { font-size: 0.85em; margin: 10px 0; }
@@ -84,18 +84,6 @@
 .help-tab:hover { color: var(--text); }
 .help-tab.active { color: var(--blue); border-bottom-color: var(--light-blue); }
 
-.subtabs {
-    display: flex; flex-wrap: wrap; gap: 0; padding: 0 16px;
-    background: var(--blue); border-bottom: none;
-    min-height: 0; flex-shrink: 0; align-items: flex-end;
-}
-.subtab {
-    padding: 7px 14px; cursor: pointer; font-size: 0.82em; color: var(--text-muted);
-    background: var(--bg); border: 1px solid var(--border); border-bottom: none;
-    border-radius: 10px 10px 0 0; margin-bottom: -1px; transition: all 0.15s;
-}
-.subtab:hover { background: #e8f4fd; color: var(--blue); }
-.subtab.active { background: var(--card-bg); color: var(--blue); font-weight: 600; border-color: var(--border); border-bottom: 1px solid var(--card-bg); }
 
 section {
     background: var(--card-bg); border: 1px solid var(--border);
@@ -115,11 +103,11 @@ input[type="text"], input[type="number"], textarea {
     width: 100%; padding: 4px 6px; border: 1px solid var(--border);
     border-radius: 4px; font-size: 0.9em; font-family: inherit;
 }
-input:focus, textarea:focus, select:focus { outline: none; border-color: var(--light-blue); box-shadow: 0 0 0 2px rgba(52,152,219,0.2); }
+input:focus, textarea:focus, select:focus { outline: none; border-color: var(--light-blue); box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
 textarea { resize: vertical; min-height: 60px; }
 select { padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.9em; }
 
-.computed { background: #e8f4fd !important; font-weight: 600; text-align: center; }
+.computed { background: var(--bg-highlight) !important; font-weight: 600; text-align: center; }
 .refs-bar { margin-top: 24px; padding-top: 16px; border-top: 2px solid var(--border); }
 .refs-bar-title { font-size: 0.8em; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
 .ref-chip.inactive { background: white; opacity: 0.65; }
@@ -173,6 +161,7 @@ footer { display: none; text-align: center; padding: 20px; color: var(--text-mut
     th, td { padding: 4px 6px; }
 }
 @media (max-width: 768px) {
+    .sidebar { width: 100%; min-width: 100%; }
     .app-layout { position: fixed; top: 40px; left: 0; right: 0; bottom: 0; }
     .main-content { flex: 1; overflow-y: auto; }
     .synth-grid { grid-template-columns: 1fr; }
@@ -183,8 +172,6 @@ footer { display: none; text-align: center; padding: 20px; color: var(--text-mut
     .col-toggle { font-size: 0.7em; padding: 2px 6px; }
     .ref-tags { font-size: 0.75em; }
     .panel-desc { font-size: 0.8em; padding: 8px 10px; }
-    .subtabs { padding: 0 8px; }
-    .subtab { padding: 6px 10px; font-size: 0.75em; }
 }
 @media (max-width: 480px) {
     .sidebar-item { min-width: 80px; font-size: 0.7em; }
@@ -242,7 +229,7 @@ footer { display: none; text-align: center; padding: 20px; color: var(--text-mut
 .help-subtitle { font-size: 0.9em; color: var(--text-muted); margin-bottom: 16px; }
 .label-bold-sm { font-size: 0.9em; font-weight: 600; }
 .cursor-pointer { cursor: pointer; }
-.snap-btn-red { background: #e74c3c; }
+.snap-btn-red { background: var(--red); }
 .snap-btn-blue { background: var(--light-blue); }
 .overflow-x-auto { overflow-x: auto; }
 .desc-text-size { font-size: 0.82em; }

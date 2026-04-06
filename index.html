@@ -38,15 +38,35 @@
 
 <nav class="sidebar">
     <div class="sidebar-collapse" data-click="toggleSidebar" data-i18n-title="sidebar_hide" title="Masquer le menu">&#10005;</div>
-    <div class="sidebar-item active" data-click="selectAtelier" data-args='["synth"]' data-i18n="ebios.sidebar.synth">Synthese</div>
-    <div class="sidebar-section" data-i18n="ebios.sidebar.section_cadrage">Cadrage</div>
-    <div class="sidebar-item" data-click="selectAtelier" data-args='["a1"]' data-i18n="ebios.sidebar.a1">Atelier 1 - Cadrage et socle de securite</div>
-    <div class="sidebar-section" data-i18n="ebios.sidebar.section_risques">Risques</div>
-    <div class="sidebar-item" data-click="selectAtelier" data-args='["a2"]' data-i18n="ebios.sidebar.a2">Atelier 2 - Sources de risques</div>
-    <div class="sidebar-item" data-click="selectAtelier" data-args='["a3"]' data-i18n="ebios.sidebar.a3">Atelier 3 - Scenarios strategiques</div>
-    <div class="sidebar-item" data-click="selectAtelier" data-args='["a4"]' data-i18n="ebios.sidebar.a4">Atelier 4 - Scenarios operationnels</div>
-    <div class="sidebar-section" data-i18n="ebios.sidebar.section_traitement">Traitement</div>
-    <div class="sidebar-item" data-click="selectAtelier" data-args='["a5"]' data-i18n="ebios.sidebar.a5">Atelier 5 - Traitement du risque</div>
+    <div class="sidebar-item active" data-click="selectPanel" data-args='["synth"]' data-i18n="ebios.sidebar.synth">Synthese</div>
+    <div class="sidebar-group" data-panels="context,vm,bs,er,socle">
+        <div class="sidebar-section sidebar-toggle" data-click="toggleGroup" data-pass-el data-i18n="ebios.sidebar.a1">Atelier 1 - Cadrage</div>
+        <div class="sidebar-item" data-click="selectPanel" data-args='["context"]' data-i18n="ebios.sidebar.context">Contexte</div>
+        <div class="sidebar-item" data-click="selectPanel" data-args='["vm"]' data-i18n="ebios.sidebar.vm">Valeurs metier</div>
+        <div class="sidebar-item" data-click="selectPanel" data-args='["bs"]' data-i18n="ebios.sidebar.bs">Biens supports</div>
+        <div class="sidebar-item" data-click="selectPanel" data-args='["er"]' data-i18n="ebios.sidebar.er">Evenements redoutes</div>
+        <div class="sidebar-item" data-click="selectPanel" data-args='["socle"]' data-i18n="ebios.sidebar.socle">Socle de securite</div>
+    </div>
+    <div class="sidebar-group" data-panels="srov">
+        <div class="sidebar-section sidebar-toggle" data-click="toggleGroup" data-pass-el data-i18n="ebios.sidebar.a2">Atelier 2 - Sources de risque</div>
+        <div class="sidebar-item" data-click="selectPanel" data-args='["srov"]' data-i18n="ebios.sidebar.srov">Sources de risque</div>
+    </div>
+    <div class="sidebar-group" data-panels="pp,ss,eco">
+        <div class="sidebar-section sidebar-toggle" data-click="toggleGroup" data-pass-el data-i18n="ebios.sidebar.a3">Atelier 3 - Scenarios strategiques</div>
+        <div class="sidebar-item" data-click="selectPanel" data-args='["pp"]' data-i18n="ebios.sidebar.pp">Parties prenantes</div>
+        <div class="sidebar-item" data-click="selectPanel" data-args='["ss"]' data-i18n="ebios.sidebar.ss">Scenarios strategiques</div>
+        <div class="sidebar-item" data-click="selectPanel" data-args='["eco"]' data-i18n="ebios.sidebar.eco">Ecosysteme</div>
+    </div>
+    <div class="sidebar-group" data-panels="sop,sop-synth">
+        <div class="sidebar-section sidebar-toggle" data-click="toggleGroup" data-pass-el data-i18n="ebios.sidebar.a4">Atelier 4 - Scenarios operationnels</div>
+        <div class="sidebar-item" data-click="selectPanel" data-args='["sop"]' data-i18n="ebios.sidebar.sop">Scenarios operationnels</div>
+        <div class="sidebar-item" data-click="selectPanel" data-args='["sop-synth"]' data-i18n="ebios.sidebar.sop_synth">Synthese des risques</div>
+    </div>
+    <div class="sidebar-group" data-panels="measures,residuals">
+        <div class="sidebar-section sidebar-toggle" data-click="toggleGroup" data-pass-el data-i18n="ebios.sidebar.a5">Atelier 5 - Traitement</div>
+        <div class="sidebar-item" data-click="selectPanel" data-args='["measures"]' data-i18n="ebios.sidebar.measures">Mesures</div>
+        <div class="sidebar-item" data-click="selectPanel" data-args='["residuals"]' data-i18n="ebios.sidebar.residuals">Risques residuels</div>
+    </div>
     <div class="flex-spacer"></div>
     <div class="sidebar-section sidebar-divider" style="display:flex;align-items:center">
         <span data-i18n="catalog.section">Analyses</span>
@@ -58,7 +78,7 @@
     <div class="sidebar-item" data-click="toggleHelp" data-args='["methodo"]' data-i18n="ebios.sidebar.methodo">Methodologie</div>
     <div class="sidebar-item" data-click="toggleHelp" data-args='["usage"]' data-i18n="ebios.sidebar.usage">Utilisation</div>
     <div class="sidebar-section" data-i18n="ebios.sidebar.section_historique">Historique</div>
-    <div class="sidebar-item" data-click="selectAtelier" data-args='["history"]' data-i18n="ebios.sidebar.snapshots">Snapshots</div>
+    <div class="sidebar-item" data-click="selectPanel" data-args='["history"]' data-i18n="ebios.sidebar.snapshots">Snapshots</div>
     <div class="btn-group-sm">
         <button id="btn-undo" class="btn-undo opacity-low" data-click="undo" data-i18n-title="btn_undo_title" title="Annuler (Ctrl+Z)">&#8630;</button>
         <button id="btn-redo" class="btn-redo opacity-low" data-click="redo" data-i18n-title="btn_redo_title" title="Retablir (Ctrl+Y)">&#8631;</button>
@@ -68,9 +88,6 @@
 
 <div class="sidebar-expand" id="sidebar-expand" data-click="toggleSidebar" data-i18n-title="sidebar_show" title="Afficher le menu">&#8250;</div>
 <main class="main-content">
-
-<!-- Sous-onglets dynamiques -->
-<div class="subtabs" id="subtab-bar"></div>
 
 <div class="container">
 
@@ -113,6 +130,8 @@
 <div id="toggles-pp"></div>
 <div id="table-pp"></div>
 <button class="btn-add" data-click="addRow" data-args='["pp"]' data-i18n="ebios.btn.add_pp">+ Ajouter une partie prenante</button>
+<button class="btn-add" style="background:var(--light-blue);margin-left:8px" data-click="triggerImportVendor" data-i18n="ebios.btn.import_vendor">Importer depuis Vendor</button>
+<input type="file" id="vendor-import-input" accept=".json" class="hidden" data-change="importVendorPP" data-pass-event>
 <div id="pp-map" class="mt-8"></div></div>
 
 <div class="tab-panel" id="panel-socle" data-atelier="a1">

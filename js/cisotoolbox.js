@@ -150,6 +150,48 @@ function _noop() {}
 window._noop = _noop;
 
 // ═══════════════════════════════════════════════════════════════════════
+// SIDEBAR ACCORDION — shared accordion for sidebar groups
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Update sidebar: set active item + open the right accordion group.
+ * Call this from each app's selectPanel().
+ * @param {string} panelId — the panel being selected
+ */
+function _updateSidebarAccordion(panelId) {
+    document.querySelectorAll(".sidebar-item").forEach(function(s) {
+        s.classList.remove("active");
+        var args = s.getAttribute("data-args");
+        if (args) { try { if (JSON.parse(args)[0] === panelId) s.classList.add("active"); } catch(e) {} }
+    });
+    document.querySelectorAll(".sidebar-group").forEach(function(g) {
+        var panels = (g.getAttribute("data-panels") || "").split(",");
+        g.classList.toggle("open", panels.indexOf(panelId) >= 0);
+    });
+}
+
+/**
+ * Toggle a sidebar group open/closed. If opening, select its first panel.
+ * Used via data-click="toggleGroup" data-pass-el on sidebar-toggle elements.
+ */
+function toggleGroup(el) {
+    if (!el) return;
+    var group = el.closest(".sidebar-group");
+    if (!group) return;
+    if (group.classList.contains("open")) {
+        group.classList.remove("open");
+    } else {
+        // Open group and select first panel WITHOUT closing the mobile sidebar
+        var sidebar = document.querySelector(".sidebar");
+        var wasOpen = sidebar && sidebar.classList.contains("open");
+        var panels = (group.getAttribute("data-panels") || "").split(",");
+        if (panels[0] && typeof selectPanel === "function") selectPanel(panels[0]);
+        // Restore mobile sidebar if it was open
+        if (wasOpen && sidebar) sidebar.classList.add("open");
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // SLIDER — Shared slider with dynamic color (red→green)
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -170,7 +212,8 @@ function _sliderColor(val, max) {
 function _applySliderStyle(el) {
     var val = parseInt(el.value) || 0;
     var max = parseInt(el.max) || 5;
-    var color = _sliderColor(val, max);
+    var invert = el.hasAttribute("data-invert");
+    var color = _sliderColor(invert ? (max - val) : val, max);
     var pct = max > 0 ? (val / max * 100) : 0;
     el.style.background = "linear-gradient(to right, " + color + " " + pct + "%, var(--border) " + pct + "%)";
     var styleId = "slider-style-" + el.id;
@@ -192,8 +235,32 @@ function _toggleSidebarMobile() {
 }
 
 function _menuAction(fnName) {
+    if (_BLOCKED_DISPATCH[fnName]) return;
     if (typeof window[fnName] === "function") window[fnName]();
     toggleMenu();
+}
+
+// ── Help overlay (shared across all modules) ────────────────────
+function toggleHelp(tab) {
+    document.querySelector(".sidebar").classList.remove("open");
+    var overlay = document.getElementById("help-overlay");
+    if (!overlay) return;
+    if (tab && !overlay.classList.contains("open")) {
+        overlay.classList.add("open");
+        switchHelpTab(tab);
+    } else if (tab && overlay.classList.contains("open")) {
+        switchHelpTab(tab);
+    } else {
+        overlay.classList.toggle("open");
+    }
+}
+function switchHelpTab(tab) {
+    document.querySelectorAll(".help-tab").forEach(function(t) { t.classList.remove("active"); });
+    document.querySelectorAll(".help-content").forEach(function(c) { c.style.display = "none"; });
+    var tabEl = document.getElementById("help-tab-" + tab);
+    var contentEl = document.getElementById("help-content-" + tab);
+    if (tabEl) tabEl.classList.add("active");
+    if (contentEl) contentEl.style.display = "block";
 }
 
 function _autoHeight(el) {
@@ -202,7 +269,7 @@ function _autoHeight(el) {
 }
 
 // Blocked function names for data-click dispatch (defense-in-depth)
-var _BLOCKED_DISPATCH = {"eval":1,"Function":1,"setTimeout":1,"setInterval":1,"fetch":1,"open":1,"close":1,"alert":1,"confirm":1,"prompt":1,"importScripts":1,"postMessage":1};
+var _BLOCKED_DISPATCH = {"eval":1,"Function":1,"setTimeout":1,"setInterval":1,"fetch":1,"open":1,"close":1,"alert":1,"confirm":1,"prompt":1,"importScripts":1,"postMessage":1,"XMLHttpRequest":1,"WebSocket":1,"EventSource":1,"Worker":1,"SharedWorker":1,"navigator":1,"crypto":1,"Notification":1};
 
 function _safeDispatch(fn, args) {
     if (_BLOCKED_DISPATCH[fn]) return;
@@ -529,10 +596,17 @@ function _updateUndoButtons() {
     if (r) r.style.opacity = _redoStack.length ? "1" : "0.3";
 }
 
+function _replaceD(json) {
+    var parsed = JSON.parse(json);
+    delete parsed.__proto__; delete parsed.constructor; delete parsed.prototype;
+    Object.keys(D).forEach(function(k) { delete D[k]; });
+    Object.assign(D, parsed);
+}
+
 function undo() {
     if (_undoStack.length === 0) return;
     _redoStack.push(JSON.stringify(D));
-    D = JSON.parse(_undoStack.pop());
+    _replaceD(_undoStack.pop());
     if (typeof renderAll === "function") renderAll();
     if (typeof _autoSave === "function") _autoSave();
     _updateUndoButtons();
@@ -541,7 +615,7 @@ function undo() {
 function redo() {
     if (_redoStack.length === 0) return;
     _undoStack.push(JSON.stringify(D));
-    D = JSON.parse(_redoStack.pop());
+    _replaceD(_redoStack.pop());
     if (typeof renderAll === "function") renderAll();
     if (typeof _autoSave === "function") _autoSave();
     _updateUndoButtons();

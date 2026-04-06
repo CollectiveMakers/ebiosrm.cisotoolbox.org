@@ -71,12 +71,14 @@ function _applyStaticTranslations() {
     // translation keys (help content). Never use with user-supplied or external data.
     document.querySelectorAll("[data-i18n-html]").forEach(function(el) {
         var html = t(el.getAttribute("data-i18n-html"));
-        // Sanitization: strip dangerous tags and attributes
-        html = html.replace(/<(script|iframe|object|embed|form|base|link|meta|svg)[^>]*>[\s\S]*?<\/\1>/gi, "")
-                    .replace(/<(script|iframe|object|embed|form|base|link|meta|svg)[^>]*\/?>/gi, "")
+        // Sanitization: strip dangerous tags, attributes, and URL schemes
+        html = html.replace(/<(script|iframe|object|embed|form|base|link|meta|svg|math|template|style)[^>]*>[\s\S]*?<\/\1>/gi, "")
+                    .replace(/<(script|iframe|object|embed|form|base|link|meta|svg|math|template|style)[^>]*\/?>/gi, "")
                     .replace(/\bon\w+\s*=/gi, "data-blocked=")
                     .replace(/javascript\s*:/gi, "blocked:")
-                    .replace(/data\s*:\s*text\/html/gi, "blocked:");
+                    .replace(/data\s*:\s*[a-z]+\/[a-z]+/gi, "blocked:")
+                    .replace(/expression\s*\(/gi, "blocked(")
+                    .replace(/vbscript\s*:/gi, "blocked:");
         el.innerHTML = html;
     });
     document.querySelectorAll("[data-i18n-title]").forEach(function(el) {

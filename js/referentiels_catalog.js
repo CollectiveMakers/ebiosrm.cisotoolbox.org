@@ -44,10 +44,10 @@ window._REFERENTIELS_CATALOG = {
         "description_en": "ANSSI qualification framework for Cloud service providers (v3.2)",
         "color": "#5c6b99"
     },
-    "nis2": {
-        "label": "NIS 2",
-        "description": "Directive NIS 2 (UE 2022/2555) \u2014 mesures de cybers\u00e9curit\u00e9 pour entit\u00e9s essentielles et importantes",
-        "description_en": "NIS 2 Directive (EU 2022/2555) \u2014 cybersecurity requirements for essential and important entities",
+    "recyf": {
+        "label": "ReCyF (NIS2)",
+        "description": "R\u00e9f\u00e9rentiel Cyber France v2.5 \u2014 transposition nationale NIS 2 (ANSSI, mars 2026)",
+        "description_en": "French Cyber Framework v2.5 \u2014 national transposition of NIS 2 Directive (ANSSI, March 2026)",
         "color": "#4a8fa8"
     },
     "cra": {

@@ -13,7 +13,7 @@ window.CT_CONFIG = {
     getScope: function(d) { return "EBIOS_RM"; }
 };
 
-let D = window.EBIOS_INIT_DATA || {};
+let D = JSON.parse(JSON.stringify(window.EBIOS_INIT_DATA || {}));
 
 // ── Chargement lazy des fichiers assets compagnons ──────────────────────
 // Fichiers générés dans le même répertoire que le HTML :

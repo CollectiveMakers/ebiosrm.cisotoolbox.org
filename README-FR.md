@@ -346,7 +346,7 @@ L'application fonctionne hors-ligne une fois chargée, avec deux exceptions :
 
 Ce projet est open source. Les contributions sont les bienvenues : signalement de bugs, suggestions de fonctionnalités, ajout de référentiels, traductions, améliorations du code.
 
-Dépôt GitHub : **https://github.com/CollectiveMakers/ebios_rm_webapp**
+Dépôt GitHub : **https://github.com/CISOToolbox/risk**
 
 ---
 

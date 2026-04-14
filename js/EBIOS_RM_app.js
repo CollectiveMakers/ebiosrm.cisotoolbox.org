@@ -2132,7 +2132,7 @@ function renderAll() {
     try {
         // Refresh toolbar right (lang toggle + GitHub)
         var _tr = document.getElementById("toolbar-right");
-        if (_tr) _tr.innerHTML = _getSettingsButtonHTML() + _getGithubLinkHTML("https://github.com/CollectiveMakers/ebios_rm_webapp");
+        if (_tr) _tr.innerHTML = _getSettingsButtonHTML() + _getGithubLinkHTML("https://github.com/CISOToolbox/risk");
         // Re-select current panel to refresh content
         if (typeof _currentPanel !== "undefined") selectPanel(_currentPanel);
         renderContext();
@@ -2897,7 +2897,7 @@ function ensureKeys() {
 try {
     // Toolbar right: language toggle + GitHub link
     var tr = document.getElementById("toolbar-right");
-    if (tr) tr.innerHTML = _getSettingsButtonHTML() + _getGithubLinkHTML("https://github.com/CollectiveMakers/ebios_rm_webapp");
+    if (tr) tr.innerHTML = _getSettingsButtonHTML() + _getGithubLinkHTML("https://github.com/CISOToolbox/risk");
     if (typeof window._appInitCallback === "function") {
         window._appInitCallback();
     } else {

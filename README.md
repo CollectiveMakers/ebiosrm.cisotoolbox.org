@@ -50,5 +50,5 @@ MIT
 ## Links
 
 - Website: https://risk.cisotoolbox.org
-- GitHub: https://github.com/CollectiveMakers/ebiosrm.cisotoolbox.org
+- GitHub: https://github.com/CISOToolbox/risk
 - CISO Toolbox: https://www.cisotoolbox.org

@@ -18,6 +18,106 @@ function _autoSave() {
     try { localStorage.setItem(key, JSON.stringify(D)); } catch(e) { showStatus(t("alert_storage_full")); }
 }
 
+// Install a transparent undo hook on _autoSave. Each save pushes the
+// previous serialized state on _undoStack, so apps get full undo/redo
+// without sprinkling _saveState() everywhere. Apps that still call
+// _saveState() manually (Risk, Compliance) are not broken — the hook
+// detects a duplicate push by comparing with the top of the stack.
+// Call this once at app boot, AFTER D is initialized.
+// Render the Snapshots panel into `target` (element id or Element).
+// Reuses createSnapshot / restoreSnapshot / deleteSnapshot / exportSnapshot
+// / enableSnapEncryption / disableSnapEncryption / _getSnapshots /
+// _isSnapEncrypted. Each app passes its own i18n keys + the name of the
+// organization field stored on each snapshot (historically "societe",
+// some apps use "organization").
+//
+// Example:
+//   _renderSnapshotsPanel({
+//     target: "history-content",
+//     orgField: "societe",
+//     keys: {
+//       create: "tprm.history.create",
+//       encrypt: "tprm.history.encrypt",
+//       decrypt: "tprm.history.decrypt",
+//       encryption_active: "tprm.history.encryption_active",
+//       none: "tprm.history.none",
+//       col_name: "tprm.history.col_name",
+//       col_date: "tprm.history.col_date",
+//       col_org: "tprm.history.col_org",
+//       col_actions: "tprm.history.col_actions",
+//       restore: "tprm.history.restore",
+//       export: "tprm.history.export",
+//       hint: "tprm.history.hint"
+//     }
+//   });
+async function _renderSnapshotsPanel(opts) {
+    opts = opts || {};
+    var tgt = (typeof opts.target === "string") ? document.getElementById(opts.target) : opts.target;
+    if (!tgt) return;
+    var keys = opts.keys || {};
+    var orgField = opts.orgField || "societe";
+    var snaps = await _getSnapshots();
+    var isEnc = _isSnapEncrypted();
+
+    var h = '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">';
+    h += '<button class="btn-add" data-click="createSnapshot">' + esc(t(keys.create)) + '</button>';
+    if (isEnc) {
+        h += '<button class="btn-add" style="background:var(--red)" data-click="disableSnapEncryption">' + esc(t(keys.decrypt)) + '</button>';
+        if (keys.encryption_active) {
+            h += '<span style="color:var(--green);font-size:0.82em">&#128274; ' + esc(t(keys.encryption_active)) + '</span>';
+        }
+    } else {
+        h += '<button class="btn-add" style="background:var(--light-blue)" data-click="enableSnapEncryption">' + esc(t(keys.encrypt)) + '</button>';
+    }
+    h += '</div>';
+
+    if (!snaps.length) {
+        h += '<p style="color:var(--text-muted);font-size:0.9em">' + esc(t(keys.none)) + '</p>';
+    } else {
+        h += '<table><thead><tr><th>' + esc(t(keys.col_name)) + '</th><th>' + esc(t(keys.col_date)) + '</th><th>' + esc(t(keys.col_org)) + '</th><th>' + esc(t(keys.col_actions)) + '</th></tr></thead><tbody>';
+        var loc = (typeof _locale !== "undefined" && _locale === "en") ? "en-US" : "fr-FR";
+        for (var i = snaps.length - 1; i >= 0; i--) {
+            var s = snaps[i];
+            var d = new Date(s.date);
+            var dateStr = d.toLocaleDateString(loc) + " " + d.toLocaleTimeString(loc, { hour: "2-digit", minute: "2-digit" });
+            var org = s[orgField] || s.societe || s.organization || "";
+            h += '<tr><td><strong>' + esc(s.name || "") + '</strong></td><td>' + esc(dateStr) + '</td><td style="font-size:0.82em">' + esc(org) + '</td>';
+            h += '<td><button class="btn-add" style="margin:0 4px 0 0" data-click="restoreSnapshot" data-args=\'' + _da(i) + '\'>' + esc(t(keys.restore)) + '</button>';
+            h += '<button class="btn-add" style="margin:0 4px 0 0;background:var(--light-blue)" data-click="exportSnapshot" data-args=\'' + _da(i) + '\'>' + esc(t(keys.export)) + '</button>';
+            h += '<button class="btn-del" data-click="deleteSnapshot" data-args=\'' + _da(i) + '\'>&times;</button></td></tr>';
+        }
+        h += '</tbody></table>';
+    }
+    if (keys.hint) {
+        h += '<p style="margin-top:16px;color:var(--text-muted);font-size:0.82em">' + esc(t(keys.hint)) + '</p>';
+    }
+    tgt.innerHTML = h;
+}
+
+function _installUndoHook() {
+    if (typeof _autoSave !== "function" || typeof _undoStack === "undefined") return;
+    if (_autoSave.__ctUndoHooked) return;
+    var _original = _autoSave;
+    var _lastSerialized = null;
+    window._autoSave = function() {
+        try {
+            var cur = JSON.stringify(D);
+            if (_lastSerialized != null && _lastSerialized !== cur) {
+                // Skip if the caller already pushed this state via _saveState()
+                if (_undoStack[_undoStack.length - 1] !== _lastSerialized) {
+                    _undoStack.push(_lastSerialized);
+                    if (_undoStack.length > 50) _undoStack.shift();
+                    _redoStack.length = 0;
+                    if (typeof _updateUndoButtons === "function") _updateUndoButtons();
+                }
+            }
+            _lastSerialized = cur;
+        } catch (e) { /* ignore serialization errors */ }
+        return _original.apply(this, arguments);
+    };
+    window._autoSave.__ctUndoHooked = true;
+}
+
 function _loadAutoSave() {
     var key = _ct().autosaveKey;
     if (!key) return false;

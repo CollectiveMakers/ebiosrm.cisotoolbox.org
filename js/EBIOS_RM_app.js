@@ -217,14 +217,18 @@ function soclePriorite(conf) {
     return t("ebios.socle.priorite_basse");
 }
 
-// Gravité SS = MAX des gravités des ER associés
+// Gravité SS = MAX des gravités des ER associés.
+// erList ressemble à "ER-001 - Évé… , ER-002 - Autre" — extraire l'ID via regex
+// (le zéro-padding peut varier selon la version qui a généré le JSON).
 function computeSSGravity(erList) {
     if (!erList) return "";
     let max = 0;
-    const ids = erList.split(",").map(s => s.trim().substring(0, 5));
+    const ids = erList.split(",")
+        .map(s => (s.trim().match(/^ER-\d+/) || [""])[0])
+        .filter(Boolean);
     for (const eid of ids) {
         const er = D.er.find(e => e.id === eid);
-        if (er && er.gravite > max) max = er.gravite;
+        if (er && Number(er.gravite) > max) max = Number(er.gravite);
     }
     return max || "";
 }
@@ -555,6 +559,7 @@ function updateField(section, idx, field, val, type) {
         renderIndicators();
         showStatus(t("ebios.status.modified"));
     }, 0);
+    _autoSave();
 }
 function nextId(section) {
     const prefixes = {
@@ -834,6 +839,7 @@ function setSocleType(type) {
     renderContext();
     renderSocle();
     renderSynthesis();
+    _autoSave();
 }
 
 function toggleReferentiel(fwId) {
@@ -1800,8 +1806,12 @@ function _sopToSS() {
     D.sop_detail.forEach(s => {
         if (!s.sop || !s.ss) return;
         if (!map[s.sop]) map[s.sop] = new Set();
-        // Extraire les SS IDs (format "SS-01 - Nom, SS-02 - Nom")
-        const ids = s.ss.split(",").map(x => x.trim().substring(0, 5)).filter(x => x.startsWith("SS-"));
+        // Extraire les SS IDs. Format: "SS-001 - Nom, SS-002 - Nom" (padding
+        // variable selon la version). Regex plutôt que substring pour éviter
+        // de tronquer SS-001 en SS-00.
+        const ids = s.ss.split(",")
+            .map(x => (x.trim().match(/^SS-\d+/) || [""])[0])
+            .filter(Boolean);
         ids.forEach(id => map[s.sop].add(id));
     });
     // Synchroniser sop_summary
@@ -2753,6 +2763,30 @@ function ensureKeys() {
         if (!("description" in g)) g.description = "";
         for (const ik of impactKeys) if (!(ik in g)) g[ik] = "";
     });
+
+    // ── 4b. Socles ANSSI / ISO : re-seed depuis EBIOS_INIT_DATA si vide ──
+    // Un JSON sauvegardé sur une ancienne version peut avoir socle_anssi: []
+    // (ou absent) — recharger les 42 mesures ANSSI / 93 ISO pré-peuplées et
+    // fusionner les valeurs (conformite / ecart / mesures_prevues) des entrées
+    // déjà présentes par num/ref.
+    const _seedSocle = (key, idCol) => {
+        const init = (window.EBIOS_INIT_DATA && window.EBIOS_INIT_DATA[key]) || [];
+        if (!init.length) return;
+        const existing = Array.isArray(D[key]) ? D[key] : [];
+        if (existing.length >= init.length) return;
+        const byId = {};
+        existing.forEach(s => { if (s && s[idCol] != null) byId[String(s[idCol])] = s; });
+        D[key] = init.map(tpl => {
+            const prev = byId[String(tpl[idCol])];
+            return Object.assign({}, tpl, prev ? {
+                conformite: prev.conformite || "",
+                ecart: prev.ecart || "",
+                mesures_prevues: prev.mesures_prevues || "",
+            } : {});
+        });
+    };
+    _seedSocle("socle_anssi", "num");
+    _seedSocle("socle_iso", "ref");
 
     // ── 5. Référentiels complémentaires : init et migration ──
     if (!Array.isArray(D.referentiels_actifs)) D.referentiels_actifs = [];

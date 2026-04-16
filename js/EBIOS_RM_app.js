@@ -71,13 +71,13 @@ function _refSliderChange(fwId, idx, val) {
 function _setContextField(key, val) {
     D.context[key] = val;
     renderContext();
-    _autoSave();
+    _persist("context");
 }
 
 function _setGravityField(idx, field, rerender, val) {
     D.gravity_scale[idx][field] = val;
     if (rerender) renderAll();
-    _autoSave();
+    _persist("gravity_scale");
 }
 
 // Canonical risk level keys (always stored in FR)
@@ -96,7 +96,7 @@ function _setRiskMatrix(ri, vi, val) {
     D.risk_matrix[ri].levels[vi] = _toCanonicalRisk(val);
     renderContext();
     renderSynthesis();
-    _autoSave();
+    _persist("risk_matrix");
 }
 
 function _effBadgeClick(el) {
@@ -330,14 +330,18 @@ function _refOnToggle(uid, section, idx, field, ids, el, single) {
         if (single) _reRenderForField(section, field);
         return;
     }
+    var oldVal = D[section][idx][field];
     D[section][idx][field] = val;
+    if (section === "sop_detail" && field === "mesure_proposee") {
+        _syncSopMeasuresToResiduals(idx, oldVal, val);
+    }
     if (single) {
         if (section === "eco") _ecoSyncColumns(idx, field, el ? el.value : "", el ? el.checked : false);
         _reRenderForField(section, field);
     } else {
         if (section === "eco") _ecoSyncColumns(idx, field, el ? el.value : "", el ? el.checked : false);
     }
-    _autoSave();
+    _persist(section);
 }
 
 function _refOnRemove(section, idx, field, removeId) {
@@ -357,7 +361,7 @@ function _refOnRemove(section, idx, field, removeId) {
     const parts = current.split(",").map(s => s.trim()).filter(s => !s.startsWith(removeId));
     D[section][idx][field] = parts.join(", ");
     _reRenderForField(section, field);
-    _autoSave();
+    _persist(section);
 }
 
 function _refOnFlush(section, field) {
@@ -523,6 +527,7 @@ function updateField(section, idx, field, val, type) {
     }
     // Limiter la longueur des chaînes
     if (typeof val === "string" && val.length > 5000) val = val.substring(0, 5000);
+    if (!D[section][idx]) D[section][idx] = {};
     const oldVal = D[section][idx][field];
     D[section][idx][field] = val;
 
@@ -544,6 +549,10 @@ function updateField(section, idx, field, val, type) {
         }
     }
 
+    if (section === "sop_detail" && field === "mesure_proposee") {
+        _syncSopMeasuresToResiduals(idx, oldVal, val);
+    }
+
     // Re-render la section modifiée + les sections dépendantes (différé pour ne pas interférer avec l'événement)
     setTimeout(() => {
         const rerenders = {
@@ -554,7 +563,7 @@ function updateField(section, idx, field, val, type) {
             "ss": [renderSS, renderResiduals, renderSynthesis],
             "srov": [renderSROV],
             "eco": [renderEco],
-            "sop_detail": [renderSOP, renderSOPSynth],
+            "sop_detail": [renderSOP, renderSOPSynth, renderResiduals],
             "measures": [renderMeasures, renderSynthesis],
             "residuals": [renderResiduals, renderSynthesis],
             "socle_anssi": [renderSocle, renderSynthesis],
@@ -565,7 +574,7 @@ function updateField(section, idx, field, val, type) {
         renderIndicators();
         showStatus(t("ebios.status.modified"));
     }, 0);
-    _autoSave();
+    _persist(section);
 }
 function nextId(section) {
     const prefixes = {
@@ -601,7 +610,7 @@ function addRow(section) {
         D[section].push({...templates[section]});
         renderAll();
         showStatus(t("ebios.status.line_added", {id: id}));
-        _autoSave();
+        _persist(section);
     }
 }
 function delRow(section, idx) {
@@ -610,7 +619,7 @@ function delRow(section, idx) {
     // Re-render only the affected section (not renderAll which resets navigation)
     _reRenderForField(section, "");
     if (typeof renderIndicators === "function") renderIndicators();
-    _autoSave();
+    _persist(section);
     showStatus(t("ebios.status.line_deleted"));
 }
 // Navigation — flat panel selection (like Vendor/Compliance/Audit)
@@ -837,7 +846,7 @@ function setGravityLevels(n) {
         D.risk_matrix = matrices[n];
     }
     renderAll();
-    _autoSave();
+    _persist("gravity_scale"); _persist("risk_matrix");
 }
 
 function setSocleType(type) {
@@ -847,7 +856,7 @@ function setSocleType(type) {
     renderContext();
     renderSocle();
     renderSynthesis();
-    _autoSave();
+    _persist("context"); _persist("settings");
 }
 
 function toggleReferentiel(fwId) {
@@ -1179,7 +1188,7 @@ function addSocleMeasure(socleIdx) {
     renderMeasures();
     renderIndicators();
     showStatus(t("ebios.status.measure_created", {id: id}));
-    _autoSave();
+    _persist("measures"); _persist("socle_anssi"); _persist("socle_iso");
 }
 
 // ── SR/OV : listes séparées SR, OV, couples ──
@@ -1200,7 +1209,7 @@ function newSR() {
     const id = "SR-" + String(max + 1).padStart(3, "0");
     D.sr_list.push({id: id, nom: desc});
     showStatus(t("ebios.status.sr_created", {id: id}));
-    _autoSave();
+    _persist("sr");
     return id;
 }
 function newOV() {
@@ -1212,7 +1221,7 @@ function newOV() {
     const id = "OV-" + String(max + 1).padStart(3, "0");
     D.ov_list.push({id: id, nom: desc});
     showStatus(t("ebios.status.ov_created", {id: id}));
-    _autoSave();
+    _persist("ov");
     return id;
 }
 
@@ -1236,7 +1245,7 @@ function updateSROVRef(idx, field, val) {
     }
     renderSROV();
     showStatus(t("ebios.status.modified"));
-    _autoSave();
+    _persist("srov");
 }
 
 function srSelectWidget(idx, val) {
@@ -1597,7 +1606,7 @@ function addEcoMeasure(ecoIdx) {
     renderMeasures();
     renderIndicators();
     showStatus(t("ebios.status.measure_created", {id: id}));
-    _autoSave();
+    _persist("measures"); _persist("eco");
 }
 
 function renderSOP() {
@@ -1677,7 +1686,28 @@ function addSOP() {
     renderSOP();
     renderIndicators();
     showStatus(t("ebios.status.sop_added", {id: sopId}));
-    _autoSave();
+    _persist("sop_detail"); _persist("sop_summary");
+}
+
+function _syncSopMeasuresToResiduals(sopDetailIdx, oldVal, newVal) {
+    var sopId = _findSOPGroup(sopDetailIdx);
+    if (!sopId) return;
+    var newRefs = (newVal || "").split(",").map(function(r){return r.trim();}).filter(Boolean);
+    var oldRefs = (oldVal || "").split(",").map(function(r){return r.trim();}).filter(Boolean);
+    var added = newRefs.filter(function(r){ return oldRefs.indexOf(r) < 0; });
+    if (added.length === 0) return;
+    var sopToSS = _sopToSS();
+    var ssIds = sopToSS[sopId];
+    if (!ssIds) return;
+    ssIds.forEach(function(ssId) {
+        var ssIdx = D.ss.findIndex(function(s) { return s.id === ssId; });
+        if (ssIdx < 0) return;
+        if (!D.residuals[ssIdx]) D.residuals[ssIdx] = {mesures:"",v_resid:"",decision:""};
+        var cur = D.residuals[ssIdx].mesures || "";
+        var refs = cur ? cur.split(",").map(function(r){return r.trim();}).filter(Boolean) : [];
+        added.forEach(function(a) { if (refs.indexOf(a) < 0) refs.push(a); });
+        D.residuals[ssIdx].mesures = refs.join(", ");
+    });
 }
 
 function addSOPPhase(firstIdx) {
@@ -1698,7 +1728,7 @@ function addSOPPhase(firstIdx) {
     });
     renderSOP();
     showStatus(t("ebios.status.phase_added", {id: sopId}));
-    _autoSave();
+    _persist("sop_detail");
 }
 
 function _findSOPGroup(idx) {
@@ -1733,7 +1763,7 @@ function moveSOPPhase(idx, dir) {
     [D.sop_detail[idx], D.sop_detail[target]] = [D.sop_detail[target], D.sop_detail[idx]];
     renderSOP();
     showStatus(t("ebios.status.phase_moved"));
-    _autoSave();
+    _persist("sop_detail");
 }
 
 function delSOPPhase(idx) {
@@ -1757,7 +1787,7 @@ function delSOPPhase(idx) {
     renderSOP();
     renderIndicators();
     showStatus(t("ebios.status.deleted"));
-    _autoSave();
+    _persist("sop_detail"); _persist("sop_summary");
 }
 
 function cycleEfficacite(idx) {
@@ -1768,7 +1798,7 @@ function cycleEfficacite(idx) {
     D.sop_detail[idx].efficacite = next;
     renderSOP();
     showStatus(t("ebios.status.efficacite", {val: next || "—"}));
-    _autoSave();
+    _persist("sop_detail");
 }
 
 function addSOPMeasure(sopIdx) {
@@ -1784,15 +1814,16 @@ function addSOPMeasure(sopIdx) {
         sop: sopId, phase: phase, effet: "",
         ref_socle: "", responsable: "", echeance: "", cout: "", statut: "À étudier",
     });
-    // Ajouter la référence dans le champ mesure_proposee du SOP
     const current = D.sop_detail[sopIdx].mesure_proposee || "";
     const newRef = id + " - " + desc;
     D.sop_detail[sopIdx].mesure_proposee = current ? current + ", " + newRef : newRef;
+    _syncSopMeasuresToResiduals(sopIdx, current, D.sop_detail[sopIdx].mesure_proposee);
     renderSOP();
     renderMeasures();
+    renderResiduals();
     renderIndicators();
     showStatus(t("ebios.status.measure_created", {id: id}));
-    _autoSave();
+    _persist("measures"); _persist("sop_detail"); _persist("residuals");
 }
 
 function _computeSOPVop() {
@@ -2028,11 +2059,14 @@ function renderSynthesis() {
         ssPositions.push({ id: s.id, gNum, vInit, vResid });
     });
 
+    var NY = (D.risk_matrix && D.risk_matrix.length) || (D.gravity_scale && D.gravity_scale.length) || 4;
+    var NX = (D.risk_matrix && D.risk_matrix[0] && D.risk_matrix[0].levels && D.risk_matrix[0].levels.length) || 4;
+
     function buildMatrix(target, getV) {
         var grid = {};
         ssPositions.forEach(function(sp) {
             var v = getV(sp);
-            if (!sp.gNum || !v || v < 1 || v > 4) return;
+            if (!sp.gNum || !v || v < 1 || v > NX || sp.gNum < 1 || sp.gNum > NY) return;
             // Key: x=vraisemblance, y=gravité (X-axis=V, Y-axis=G)
             var key = v + "-" + sp.gNum;
             if (!grid[key]) grid[key] = [];
@@ -2043,10 +2077,12 @@ function renderSynthesis() {
         });
 
         var gLabels = [];
-        for (var g = 1; g <= 4; g++) { gLabels.push(gravLabel(g) || "G" + g); }
+        for (var g = 1; g <= NY; g++) { gLabels.push(gravLabel(g) || "G" + g); }
 
         document.getElementById(target).innerHTML = ctRenderMatrix({
-            levels: 4,
+            levels: Math.max(NX, NY),
+            xLevels: NX,
+            yLevels: NY,
             xLabel: t("ebios.synth.col_vraisemblance") || "Vraisemblance",
             yLabel: t("ebios.synth.col_gravite") || "Gravite",
             yLabels: gLabels,
@@ -2902,9 +2938,28 @@ function ensureKeys() {
     }
 
     // 5d. Matrice de risque par défaut si vide
-    if (D.risk_matrix.length === 0 && D.gravity_scale.length > 0) {
-        const n = D.gravity_scale.length;
-        setGravityLevels(n);
+    if (D.risk_matrix.length === 0) {
+        var _F = t("ebios.risk.faible"), _M = t("ebios.risk.moyen"), _E = t("ebios.risk.eleve");
+        var n = D.gravity_scale.length || 4;
+        if (D.gravity_scale.length === 0) {
+            function _g(niv, label, desc) {
+                return {niveau:niv, label:label, description:desc,
+                    impact_financier:"", impact_reputation:"", impact_reglementaire:"",
+                    impact_donnees_perso:"", impact_operationnel:""};
+            }
+            D.gravity_scale = [
+                _g(4, t("ebios.grav.critique"), t("ebios.grav.desc_critique")),
+                _g(3, t("ebios.grav.grave"), t("ebios.grav.desc_grave")),
+                _g(2, t("ebios.grav.significatif"), t("ebios.grav.desc_significatif")),
+                _g(1, t("ebios.grav.faible"), t("ebios.grav.desc_faible")),
+            ];
+        }
+        var _matrices = {
+            3: [{g:3, levels:[_M,_E,_E,_E]},{g:2, levels:[_F,_M,_M,_E]},{g:1, levels:[_F,_F,_F,_M]}],
+            4: [{g:4, levels:[_M,_M,_E,_E]},{g:3, levels:[_F,_M,_M,_E]},{g:2, levels:[_F,_F,_M,_M]},{g:1, levels:[_F,_F,_F,_M]}],
+            5: [{g:5, levels:[_M,_E,_E,_E]},{g:4, levels:[_M,_M,_E,_E]},{g:3, levels:[_F,_M,_M,_E]},{g:2, levels:[_F,_F,_M,_M]},{g:1, levels:[_F,_F,_F,_F]}],
+        };
+        D.risk_matrix = _matrices[n] || _matrices[4];
     }
 
     // 5e. PP : deviner la catégorie depuis le type si absente

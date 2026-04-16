@@ -18,6 +18,47 @@ function _autoSave() {
     try { localStorage.setItem(key, JSON.stringify(D)); } catch(e) { showStatus(t("alert_storage_full")); }
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// PERSISTENCE ADAPTER
+// ═══════════════════════════════════════════════════════════════════════
+//
+// Uniform mutation interface shared between the opensource (localStorage)
+// and backend (REST API) persistence layers. Every mutation site in
+// the app code calls one of these three functions instead of raw
+// `_autoSave()`. The **backend** layer (`vendor_api.js`, `risk_api.js`)
+// overrides them with PATCH-based implementations; the opensource layer
+// below simply delegates to the blob-level `_autoSave()`.
+//
+// Usage in app code (TPRM_app.js, EBIOS_RM_app.js):
+//
+//   D.vendors[idx].name = val;
+//   _persist("vendor", v.id, { name: val });
+//
+//   D.vendors.push(newVendor);
+//   _persistCreate("vendor", newVendor);
+//
+//   D.vendors.splice(idx, 1);
+//   _persistDelete("vendor", v.id);
+//
+// Helper:
+//   _obj("name", val)  →  { name: val }
+//
+// See CLAUDE.md § "Persistence adapter" for the full contract.
+
+function _obj(k, v) { var o = {}; o[k] = v; return o; }
+
+function _persist(entityType, entityId, fields) {
+    _autoSave();
+}
+
+function _persistCreate(entityType, data) {
+    _autoSave();
+}
+
+function _persistDelete(entityType, entityId) {
+    _autoSave();
+}
+
 // Install a transparent undo hook on _autoSave. Each save pushes the
 // previous serialized state on _undoStack, so apps get full undo/redo
 // without sprinkling _saveState() everywhere. Apps that still call

@@ -3026,4 +3026,8 @@ ${esc(e.stack||"")}</pre></section>`;
 }
 
 // AI module config (read by ai_common.js)
-window.AI_APP_CONFIG = { storagePrefix: "ebios" };
+window.AI_APP_CONFIG = {
+    storagePrefix: "ebios",
+    settingsExtraHTML: function() { return _demoSettingsHTML(); },
+    onSettingsRendered: function() { _wireDemoSettings(); }
+};

@@ -20,6 +20,7 @@
     var cfg = window.AI_APP_CONFIG || { storagePrefix: "ct" };
     var pfx = cfg.storagePrefix || "ct";
 
+
     // ═══════════════════════════════════════════════════════════════════
     // PROVIDERS
     // ═══════════════════════════════════════════════════════════════════
@@ -44,8 +45,55 @@
             defaultModel: "gpt-4o",
             placeholder: "sk-...",
             endpoint: "https://api.openai.com/v1/chat/completions"
+        },
+        bedrock: {
+            label: "AWS Bedrock",
+            models: [
+                { id: "anthropic.claude-sonnet-4-6-20250514-v1:0", label: "Claude Sonnet 4.6 (Bedrock)" },
+                { id: "anthropic.claude-haiku-4-5-20251001-v1:0", label: "Claude Haiku 4.5 (Bedrock)" },
+                { id: "anthropic.claude-opus-4-6-20250515-v1:0", label: "Claude Opus 4.6 (Bedrock)" }
+            ],
+            defaultModel: "anthropic.claude-sonnet-4-6-20250514-v1:0",
+            placeholder: "AKIAIOSFODNN7EXAMPLE",
+            endpoint: "https://bedrock-runtime.eu-west-3.amazonaws.com"
         }
     };
+
+    // ── AWS SigV4 signing (minimal, for Bedrock) ─────────────────────
+    async function _hmac(key, msg) {
+        var k = (typeof key === "string") ? new TextEncoder().encode(key) : key;
+        var cryptoKey = await crypto.subtle.importKey("raw", k, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+        return new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(msg)));
+    }
+    async function _sha256(msg) {
+        var buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(msg));
+        return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, "0"); }).join("");
+    }
+    async function _signV4(method, url, body, accessKey, secretKey, region, service) {
+        var u = new URL(url);
+        var now = new Date();
+        var dateStamp = now.toISOString().replace(/[-:]/g, "").replace(/\.\d+Z/, "Z");
+        var shortDate = dateStamp.substring(0, 8);
+        var payloadHash = await _sha256(body || "");
+        var headers = {
+            "host": u.host,
+            "x-amz-date": dateStamp,
+            "x-amz-content-sha256": payloadHash,
+            "content-type": "application/json"
+        };
+        var signedHeaders = Object.keys(headers).sort().join(";");
+        var canonicalHeaders = Object.keys(headers).sort().map(function(k) { return k + ":" + headers[k] + "\n"; }).join("");
+        var canonicalRequest = method + "\n" + u.pathname + "\n" + (u.search ? u.search.substring(1) : "") + "\n" + canonicalHeaders + "\n" + signedHeaders + "\n" + payloadHash;
+        var credentialScope = shortDate + "/" + region + "/" + service + "/aws4_request";
+        var stringToSign = "AWS4-HMAC-SHA256\n" + dateStamp + "\n" + credentialScope + "\n" + (await _sha256(canonicalRequest));
+        var kDate = await _hmac("AWS4" + secretKey, shortDate);
+        var kRegion = await _hmac(kDate, region);
+        var kService = await _hmac(kRegion, service);
+        var kSigning = await _hmac(kService, "aws4_request");
+        var sig = Array.from(await _hmac(kSigning, stringToSign)).map(function(b) { return b.toString(16).padStart(2, "0"); }).join("");
+        headers["authorization"] = "AWS4-HMAC-SHA256 Credential=" + accessKey + "/" + credentialScope + ", SignedHeaders=" + signedHeaders + ", Signature=" + sig;
+        return headers;
+    }
 
     // ═══════════════════════════════════════════════════════════════════
     // STORAGE HELPERS (prefixed per app)
@@ -59,6 +107,22 @@
 
     window._aiGetProvider = function() { return localStorage.getItem(_k("provider")) || "anthropic"; };
     window._aiSetProvider = function(p) { localStorage.setItem(_k("provider"), p); };
+
+    window._aiGetEndpoint = function() { return localStorage.getItem(_k("endpoint")) || ""; };
+    window._aiSetEndpoint = function(url) { if (url) localStorage.setItem(_k("endpoint"), url); else localStorage.removeItem(_k("endpoint")); };
+
+    window._aiGetSecretKey = function() { return localStorage.getItem(_k("secretkey")) || ""; };
+    window._aiSetSecretKey = function(key) { if (key) localStorage.setItem(_k("secretkey"), key); else localStorage.removeItem(_k("secretkey")); };
+
+    window._aiGetRegion = function() { return localStorage.getItem(_k("region")) || "eu-west-3"; };
+    window._aiSetRegion = function(r) { if (r) localStorage.setItem(_k("region"), r); else localStorage.removeItem(_k("region")); };
+
+    function _resolveEndpoint(provider) {
+        var custom = _aiGetEndpoint();
+        if (custom) return custom;
+        var p = AI_PROVIDERS[provider] || AI_PROVIDERS.anthropic;
+        return p.endpoint;
+    }
 
     window._aiGetModel = function() {
         var stored = localStorage.getItem(_k("model"));
@@ -93,9 +157,11 @@
     async function _aiValidateKey(provider, apiKey, model) {
         var providerConf = AI_PROVIDERS[provider] || AI_PROVIDERS.anthropic;
         try {
+            // Bedrock: skip validation (SigV4 makes it complex, will fail on first real call)
+            if (provider === "bedrock") return true;
             var resp;
             if (provider === "anthropic") {
-                resp = await fetch(providerConf.endpoint, {
+                resp = await fetch(_resolveEndpoint(provider), {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -111,7 +177,7 @@
                 });
             } else {
                 // OpenAI-compatible providers (openai, mistral)
-                resp = await fetch(providerConf.endpoint, {
+                resp = await fetch(_resolveEndpoint(provider), {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -133,14 +199,14 @@
     }
 
     window._aiCallAPI = async function(systemPrompt, userPrompt) {
-        var apiKey = _aiGetApiKey();
-        if (!apiKey) return null;
-
         // Append user context file if present
         var ctx = _aiGetContext();
         if (ctx) {
             systemPrompt += "\n\n--- METHODOLOGY INSTRUCTIONS (provided by the user) ---\n" + ctx;
         }
+
+        var apiKey = _aiGetApiKey();
+        if (!apiKey) return null;
 
         var provider = _aiGetProvider();
         var providerConf = AI_PROVIDERS[provider] || AI_PROVIDERS.anthropic;
@@ -148,11 +214,29 @@
         var resp, data, text;
 
         try {
-            if (provider === "anthropic") {
+            if (provider === "bedrock") {
+                // AWS Bedrock — SigV4 signed request
+                var region = _aiGetRegion();
+                var secretKey = _aiGetSecretKey();
+                var bedrockEndpoint = _resolveEndpoint(provider);
+                var bedrockUrl = bedrockEndpoint + "/model/" + encodeURIComponent(model) + "/invoke";
+                var bedrockBody = JSON.stringify({
+                    anthropic_version: "bedrock-2023-05-31",
+                    max_tokens: 4096,
+                    system: systemPrompt,
+                    messages: [{ role: "user", content: userPrompt }]
+                });
+                var sigHeaders = await _signV4("POST", bedrockUrl, bedrockBody, apiKey, secretKey, region, "bedrock");
+                resp = await fetch(bedrockUrl, {
+                    method: "POST",
+                    headers: sigHeaders,
+                    body: bedrockBody
+                });
+            } else if (provider === "anthropic") {
                 // anthropic-dangerous-direct-browser-access: required by Anthropic
                 // for direct browser API calls (no backend proxy). Acceptable for
                 // internal/local tools. API key is exposed to browser extensions.
-                resp = await fetch(providerConf.endpoint, {
+                resp = await fetch(_resolveEndpoint(provider), {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -169,7 +253,7 @@
                 });
             } else {
                 // OpenAI-compatible providers (openai, mistral)
-                resp = await fetch(providerConf.endpoint, {
+                resp = await fetch(_resolveEndpoint(provider), {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -200,7 +284,7 @@
         }
 
         data = await resp.json();
-        if (provider === "anthropic") {
+        if (provider === "anthropic" || provider === "bedrock") {
             text = data.content && data.content[0] ? data.content[0].text : "";
         } else {
             // OpenAI-compatible (openai, mistral)
@@ -237,7 +321,8 @@
         var key = _aiGetApiKey();
         var curProvider = _aiGetProvider();
         var aiEnabled = localStorage.getItem(_k("enabled")) === "true";
-        var placeholder = (AI_PROVIDERS[curProvider] || AI_PROVIDERS.anthropic).placeholder;
+        var providerConf = AI_PROVIDERS[curProvider] || AI_PROVIDERS.anthropic;
+        var placeholder = providerConf.placeholder;
 
         var provOpts = "";
         for (var pid in AI_PROVIDERS) {
@@ -247,7 +332,6 @@
         var panel = _aiEnsurePanel();
         panel.title.textContent = t("settings.title");
         var _hideAI = cfg.hideAI || false;
-        var _hideDemo = cfg.hideDemo || false;
 
         var _settingsHTML =
             // Language
@@ -259,8 +343,59 @@
                 '</div>' +
             '</div>';
 
-        // AI section (unless hidden)
         if (!_hideAI) {
+            // Build provider-specific fields — only the selected provider's
+            // fields are shown. This keeps the panel clean for operators who
+            // only need one provider (the common case).
+            function _providerFields(p) {
+                var pConf = AI_PROVIDERS[p] || {};
+                var h = '';
+                // Model dropdown (for providers that define a model list)
+                if (pConf.models && pConf.models.length) {
+                    h += '<div class="settings-label fs-sm" style="margin-bottom:4px">' + t("settings.model") + '</div>';
+                    h += '<select class="settings-input" id="settings-model" style="width:100%;margin-bottom:12px">' + _buildModelOptions(p) + '</select>';
+                } else {
+                    // Custom: free-text model input
+                    h += '<div class="settings-label fs-sm" style="margin-bottom:4px">' + t("settings.model") + '</div>';
+                    h += '<input type="text" class="settings-input" id="settings-model" value="' + esc(localStorage.getItem(_k("model")) || "") + '" placeholder="model-name" style="width:100%;margin-bottom:12px">';
+                }
+                // API key (all providers except custom-without-key)
+                if (p !== "custom" || true) {
+                    h += '<div class="settings-label fs-sm" style="margin-bottom:4px">' + t("settings.api_key") + (p === "custom" ? ' <span class="text-muted">(optionnel)</span>' : '') + '</div>';
+                    h += '<div style="display:flex;gap:6px;align-items:center">';
+                    h += '<input type="password" class="settings-input" id="settings-api-key" value="' + esc(key) + '" placeholder="' + esc((pConf.placeholder || "sk-...")) + '" style="flex:1">';
+                    h += '<button class="settings-btn-eye" id="settings-toggle-key" title="' + t("settings.show_key") + '">👁</button>';
+                    h += '</div>';
+                    if (p !== "bedrock" && p !== "custom") {
+                        h += '<p class="fs-xs text-muted" style="margin-top:6px">' + t("settings.api_key_note") + '</p>';
+                    }
+                }
+                // Bedrock-specific: secret key + region
+                if (p === "bedrock") {
+                    h += '<div class="settings-label fs-sm" style="margin-top:12px;margin-bottom:4px">' + t("settings.secret_key") + '</div>';
+                    h += '<input type="password" class="settings-input" id="settings-secret-key" value="' + esc(_aiGetSecretKey()) + '" placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" style="width:100%">';
+                    h += '<div class="settings-label fs-sm" style="margin-top:8px;margin-bottom:4px">' + t("settings.region") + '</div>';
+                    h += '<input type="text" class="settings-input" id="settings-region" value="' + esc(_aiGetRegion()) + '" placeholder="eu-west-3" style="width:100%">';
+                }
+                // Custom: endpoint is required. Other providers: optional.
+                if (p === "custom") {
+                    h += '<div class="settings-label fs-sm" style="margin-top:12px;margin-bottom:4px">' + t("settings.endpoint") + ' <span style="color:var(--red)">*</span></div>';
+                    h += '<input type="url" class="settings-input" id="settings-endpoint" value="' + esc(_aiGetEndpoint()) + '" placeholder="https://my-llm.example.com/v1/chat/completions" style="width:100%">';
+                    h += '<p class="fs-xs text-muted" style="margin-top:4px">' + (t("settings.custom_endpoint_note") || "URL complète du endpoint compatible OpenAI (POST, JSON, messages[]).") + '</p>';
+                } else {
+                    h += '<div class="settings-label fs-sm" style="margin-top:12px;margin-bottom:4px">' + t("settings.endpoint") + ' <span class="text-muted">(optionnel)</span></div>';
+                    h += '<input type="url" class="settings-input" id="settings-endpoint" value="' + esc(_aiGetEndpoint()) + '" placeholder="' + esc((pConf.endpoint || "")) + '" style="width:100%">';
+                    h += '<p class="fs-xs text-muted" style="margin-top:4px">' + t("settings.endpoint_note") + '</p>';
+                }
+                return h;
+            }
+
+            // Add "custom" to provider options if not already defined
+            var allProviderOpts = provOpts;
+            if (!AI_PROVIDERS.custom) {
+                allProviderOpts += '<option value="custom"' + (curProvider === "custom" ? ' selected' : '') + '>' + (t("settings.provider_custom") || "Custom LLM") + '</option>';
+            }
+
             _settingsHTML +=
             '<div class="settings-section">' +
                 '<div class="settings-label">' + t("settings.ai_section") + '</div>' +
@@ -269,15 +404,10 @@
                     '<span class="fs-sm">' + t("settings.ai_enable") + '</span>' +
                 '</div>' +
                 '<div class="settings-label fs-sm" style="margin-bottom:4px">' + t("settings.provider") + '</div>' +
-                '<select class="settings-input" id="settings-provider" style="width:100%;margin-bottom:12px">' + provOpts + '</select>' +
-                '<div class="settings-label fs-sm" style="margin-bottom:4px">' + t("settings.model") + '</div>' +
-                '<select class="settings-input" id="settings-model" style="width:100%;margin-bottom:12px">' + _buildModelOptions(curProvider) + '</select>' +
-                '<div class="settings-label fs-sm" style="margin-bottom:4px">' + t("settings.api_key") + '</div>' +
-                '<div style="display:flex;gap:6px;align-items:center">' +
-                    '<input type="password" class="settings-input" id="settings-api-key" value="' + esc(key) + '" placeholder="' + placeholder + '" style="flex:1">' +
-                    '<button class="settings-btn-eye" id="settings-toggle-key" title="' + t("settings.show_key") + '">👁</button>' +
-                '</div>' +
-                '<p class="fs-xs text-muted" style="margin-top:6px">' + t("settings.api_key_note") + '</p>' +
+                '<select class="settings-input" id="settings-provider" style="width:100%;margin-bottom:12px">' + allProviderOpts + '</select>' +
+                // Provider-specific fields container — rebuilt on provider change
+                '<div id="settings-provider-fields">' + _providerFields(curProvider) + '</div>' +
+                // Context file (always visible, not provider-specific)
                 '<div class="settings-label fs-sm" style="margin-top:12px;margin-bottom:4px">' + t("settings.context_file") + '</div>' +
                 '<div style="display:flex;gap:6px;align-items:center">' +
                     '<input type="file" class="settings-input" id="settings-context-file" accept=".md,.txt,.markdown" style="flex:1;font-family:inherit">' +
@@ -303,16 +433,6 @@
                 '<button class="ai-btn-accept" id="settings-save">' + t("settings.save") + '</button>' +
             '</div>';
 
-        // Demo (unless hidden)
-        if (!_hideDemo) {
-            _settingsHTML +=
-            '<div class="settings-section" style="margin-top:24px;border-top:1px solid var(--border);padding-top:16px">' +
-                '<div class="settings-label">' + t("settings.demo_section") + '</div>' +
-                '<p class="fs-xs text-muted" style="margin-bottom:8px">' + t("settings.demo_note") + '</p>' +
-                '<button class="ai-btn-close" style="width:100%;padding:8px;font-size:0.85em" id="settings-load-demo">' + t("settings.demo_load") + '</button>' +
-            '</div>';
-        }
-
         panel.body.innerHTML = _settingsHTML;
         panel.footer.innerHTML = "";
         _aiOpenPanel();
@@ -321,23 +441,6 @@
         document.getElementById("settings-cancel").onclick = _aiClosePanel;
         document.getElementById("settings-lang-fr").onclick = function() { switchLang("fr"); openSettings(); };
         document.getElementById("settings-lang-en").onclick = function() { switchLang("en"); openSettings(); };
-        var demoBtn = document.getElementById("settings-load-demo");
-        if (demoBtn) demoBtn.onclick = function() {
-            var demoFile = _locale === "fr" ? "demo-fr.json" : "demo-en.json";
-            _aiClosePanel();
-            fetch(demoFile).then(function(r) {
-                if (!r.ok) throw new Error("Demo file not found: " + demoFile);
-                return r.text();
-            }).then(function(json) {
-                D = JSON.parse(json);
-                if (typeof _initDataAndRender === "function") _initDataAndRender(function() {
-                    if (typeof _autoSave === "function") _autoSave();
-                    showStatus(t("settings.demo_loaded"));
-                });
-            }).catch(function(e) {
-                alert(t("settings.demo_error", {msg: e.message}));
-            });
-        };
         var toggleKeyBtn = document.getElementById("settings-toggle-key");
         if (toggleKeyBtn) toggleKeyBtn.onclick = function() {
             var inp = document.getElementById("settings-api-key");
@@ -370,9 +473,18 @@
         var provSelect = document.getElementById("settings-provider");
         if (provSelect) provSelect.onchange = function() {
             var p = this.value;
-            document.getElementById("settings-api-key").placeholder = (AI_PROVIDERS[p] || AI_PROVIDERS.anthropic).placeholder;
-            document.getElementById("settings-api-key").value = "";
-            document.getElementById("settings-model").innerHTML = _buildModelOptions(p);
+            // Rebuild the provider-specific fields section entirely —
+            // cleaner than show/hide, and ensures only relevant fields exist.
+            var container = document.getElementById("settings-provider-fields");
+            if (container) {
+                container.innerHTML = _providerFields(p);
+                // Re-wire eye toggle on the new API key input
+                var btn = document.getElementById("settings-toggle-key");
+                if (btn) btn.onclick = function() {
+                    var inp = document.getElementById("settings-api-key");
+                    if (inp) inp.type = inp.type === "password" ? "text" : "password";
+                };
+            }
         };
         document.getElementById("settings-save").onclick = async function() {
             var aiToggle = document.getElementById("settings-ai-toggle").checked;
@@ -380,10 +492,18 @@
             var newProvider = document.getElementById("settings-provider").value;
             var newModel = document.getElementById("settings-model").value;
 
-            // Cannot enable without a key
-            if (aiToggle && !newKey) {
+            // Cannot enable without a key (except custom provider where key is optional)
+            if (aiToggle && !newKey && newProvider !== "custom") {
                 alert(t("settings.ai_needs_key"));
                 return;
+            }
+            // Custom provider requires an endpoint
+            if (aiToggle && newProvider === "custom") {
+                var epVal = (document.getElementById("settings-endpoint") || {}).value || "";
+                if (!epVal.trim()) {
+                    alert(t("settings.custom_needs_endpoint") || "L'endpoint est requis pour un LLM personnalisé.");
+                    return;
+                }
             }
 
             // Validate key if it changed and AI is being enabled
@@ -411,6 +531,12 @@
             _aiSetProvider(newProvider);
             _aiSetModel(newModel);
             if (newKey !== _aiGetApiKey()) _aiSetApiKey(newKey);
+            var endpointEl = document.getElementById("settings-endpoint");
+            _aiSetEndpoint(endpointEl ? endpointEl.value.trim() : "");
+            var secretEl = document.getElementById("settings-secret-key");
+            _aiSetSecretKey(secretEl ? secretEl.value.trim() : "");
+            var regionEl = document.getElementById("settings-region");
+            _aiSetRegion(regionEl ? regionEl.value.trim() : "");
             if (_pendingContext !== null) {
                 _aiSetContext(_pendingContext);
                 _aiSetContextName(_pendingContextName);
@@ -440,7 +566,9 @@
         if (_panelEl) return { panel: _panelEl, title: _titleEl, body: _bodyEl, footer: _footerEl };
         _overlayEl = document.createElement("div");
         _overlayEl.className = "ai-overlay";
-        _overlayEl.onclick = function(e) { if (e.target === _overlayEl) _aiClosePanel(); };
+        var _overlayMouseDown = null;
+        _overlayEl.addEventListener("mousedown", function(e) { _overlayMouseDown = e.target; });
+        _overlayEl.addEventListener("click", function(e) { if (e.target === _overlayEl && _overlayMouseDown === _overlayEl) _aiClosePanel(); });
         document.body.appendChild(_overlayEl);
 
         _panelEl = document.createElement("div");
@@ -498,11 +626,12 @@
         "settings.api_key": "Clé API",
         "settings.show_key": "Afficher / masquer la clé",
         "settings.api_key_note": "La clé est stockée dans votre navigateur (localStorage) et n'est jamais incluse dans les fichiers sauvegardés. Elle est transmise directement à l'API du fournisseur depuis votre navigateur — elle peut être visible dans les DevTools et par les extensions installées.",
-        "settings.demo_section": "Démonstration",
-        "settings.demo_note": "Chargez un fichier d'exemple complet (société fictive MedSecure — IoMT) pour découvrir les fonctionnalités de l'application.",
-        "settings.demo_load": "Charger la démonstration",
-        "settings.demo_loaded": "Démonstration chargée",
-        "settings.demo_error": "Erreur lors du chargement de la démo : {msg}",
+        "settings.endpoint": "Endpoint API (optionnel)",
+        "settings.endpoint_note": "Laissez vide pour utiliser l'API officielle du fournisseur. Renseignez une URL custom pour utiliser un proxy ou un endpoint compatible (ex: Azure OpenAI, Ollama, LiteLLM).",
+        "settings.secret_key": "Secret Access Key (AWS)",
+        "settings.region": "Region AWS",
+        "settings.provider_custom": "LLM personnalisé",
+        "settings.custom_endpoint_note": "URL complète du endpoint compatible OpenAI (POST, JSON, messages[]).",
         "settings.save": "Enregistrer",
         "settings.saved": "Réglages enregistrés",
         "settings.context_file": "Instructions méthodologiques (Markdown)",
@@ -534,11 +663,12 @@
         "settings.api_key": "API Key",
         "settings.show_key": "Show / hide key",
         "settings.api_key_note": "The key is stored in your browser (localStorage) and never included in saved files. It is transmitted directly to the provider's API from your browser — it may be visible in DevTools and to installed browser extensions.",
-        "settings.demo_section": "Demonstration",
-        "settings.demo_note": "Load a complete example file (fictional company MedSecure — IoMT) to explore the application features.",
-        "settings.demo_load": "Load demonstration",
-        "settings.demo_loaded": "Demonstration loaded",
-        "settings.demo_error": "Error loading demo: {msg}",
+        "settings.endpoint": "API Endpoint (optional)",
+        "settings.endpoint_note": "Leave empty to use the official provider API. Enter a custom URL for a proxy or compatible endpoint (e.g.: Azure OpenAI, Ollama, LiteLLM).",
+        "settings.secret_key": "Secret Access Key (AWS)",
+        "settings.region": "AWS Region",
+        "settings.provider_custom": "Custom LLM",
+        "settings.custom_endpoint_note": "Full URL of the OpenAI-compatible endpoint (POST, JSON, messages[]).",
         "settings.save": "Save",
         "settings.saved": "Settings saved",
         "settings.context_file": "Methodology instructions (Markdown)",

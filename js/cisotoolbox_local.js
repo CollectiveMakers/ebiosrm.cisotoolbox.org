@@ -523,3 +523,52 @@ document.addEventListener("DOMContentLoaded", function() {
         if (el) el.style.display = "none";
     }
 });
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// DEMO DATA LOADING (settings panel hook)
+// ═══════════════════════════════════════════════════════════════════════
+
+function _demoSettingsHTML() {
+    return '<div class="settings-section" style="margin-top:24px;border-top:1px solid var(--border);padding-top:16px">' +
+        '<div class="settings-label">' + t("settings.demo_section") + '</div>' +
+        '<p class="fs-xs text-muted" style="margin-bottom:8px">' + t("settings.demo_note") + '</p>' +
+        '<button class="ai-btn-close" style="width:100%;padding:8px;font-size:0.85em" id="settings-load-demo">' + t("settings.demo_load") + '</button>' +
+    '</div>';
+}
+
+function _wireDemoSettings() {
+    var btn = document.getElementById("settings-load-demo");
+    if (!btn) return;
+    btn.onclick = function() {
+        var demoFile = (window._locale || "fr") === "fr" ? "demo-fr.json" : "demo-en.json";
+        if (typeof _aiClosePanel === "function") _aiClosePanel();
+        fetch(demoFile).then(function(r) {
+            if (!r.ok) throw new Error("Demo file not found: " + demoFile);
+            return r.text();
+        }).then(function(json) {
+            D = JSON.parse(json);
+            if (typeof _initDataAndRender === "function") _initDataAndRender(function() {
+                if (typeof _autoSave === "function") _autoSave();
+                showStatus(t("settings.demo_loaded"));
+            });
+        }).catch(function(e) {
+            showStatus(t("settings.demo_error") + " " + e.message);
+        });
+    };
+}
+
+_registerTranslations("fr", {
+    "settings.demo_section": "Démonstration",
+    "settings.demo_note": "Chargez un fichier d'exemple complet (société fictive MedSecure) pour découvrir les fonctionnalités de l'application.",
+    "settings.demo_load": "Charger la démonstration",
+    "settings.demo_loaded": "Démonstration chargée",
+    "settings.demo_error": "Erreur lors du chargement :"
+});
+_registerTranslations("en", {
+    "settings.demo_section": "Demonstration",
+    "settings.demo_note": "Load a complete example file (fictional company MedSecure) to explore the application features.",
+    "settings.demo_load": "Load demonstration",
+    "settings.demo_loaded": "Demonstration loaded",
+    "settings.demo_error": "Error loading demo:"
+});

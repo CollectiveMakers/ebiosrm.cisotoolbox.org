@@ -171,6 +171,12 @@ td .ref-select, td .ref-select * { box-shadow: none; }
 .btn-del { background: var(--red); color: white; border: none; padding: 2px 8px; border-radius: 5px; cursor: pointer; font-size: 0.75em; transition: all 0.15s; }
 .btn-add:hover { opacity: 0.85; } .btn-del:hover { opacity: 0.85; }
 
+/* Semantic variants used by ct_finding_view and ct_bulkbar — override the
+   default green .btn-add background per triage action. */
+.btn-add.btn-fix { background: #16a34a; color: white; border: none; }  /* À corriger — green */
+.btn-add.btn-fp  { background: #6b7280; color: white; border: none; }  /* Faux positif — grey */
+.btn-add.btn-icon { display: inline-flex; align-items: center; gap: 4px; }
+
 .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600; color: white; }
 
 /* ── Inline SVG icon ─────────────────────────────────────────────
@@ -269,6 +275,39 @@ td .ref-select, td .ref-select * { box-shadow: none; }
 .ref-option input { margin: 0; }
 .filters-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
 
+/* ── ct_table ────────────────────────────── */
+.ct-table { width:100%; border-collapse:collapse; }
+.ct-table thead th { text-align:left; padding:6px 10px; background:var(--bg,#f8fafc); border-bottom:1px solid var(--border,#e2e8f0); font-weight:600; font-size:0.82em; color:var(--text-muted,#64748b); }
+.ct-table thead th.sortable { cursor:pointer; user-select:none; }
+.ct-table thead th.sortable:hover { background:var(--hover-bg,#f1f5f9); }
+.ct-table thead th .sort-indicator { opacity:0.5; margin-left:4px; font-size:0.75em; }
+.ct-table thead th.sort-active .sort-indicator { opacity:1; }
+.ct-table tbody td { padding:6px 10px; border-bottom:1px solid var(--border,#e2e8f0); font-size:0.88em; vertical-align:middle; }
+.ct-table tbody tr:hover { background:var(--hover-bg,#f8fafc); }
+.ct-table tbody tr.selected { background:rgba(37,99,235,0.06); }
+.ct-table .ct-bulk-col { width:32px; text-align:center; }
+
+/* ── ct_bulkbar ──────────────────────────── */
+.ct-bulkbar { position:fixed; bottom:0; left:0; right:0; z-index:999; background:white; border-top:1px solid var(--border,#e2e8f0); box-shadow:0 -4px 12px rgba(0,0,0,0.08); padding:10px 20px; display:flex; align-items:center; gap:12px; }
+.ct-bulkbar[hidden] { display:none !important; }
+.ct-bulkbar__count { font-weight:600; color:var(--blue,#2563eb); font-size:0.9em; }
+.ct-bulkbar__actions { display:flex; gap:8px; flex:1; }
+.ct-bulkbar__btn { padding:6px 12px; border-radius:6px; border:1px solid var(--border,#cbd5e1); background:white; cursor:pointer; font-size:0.85em; display:inline-flex; align-items:center; gap:6px; }
+.ct-bulkbar__btn:hover { background:var(--hover-bg,#f1f5f9); }
+.ct-bulkbar__btn--danger { color:#fff; background:#dc2626; border-color:#dc2626; }
+.ct-bulkbar__btn--danger:hover { background:#b91c1c; border-color:#b91c1c; }
+.ct-bulkbar__btn--success { color:#fff; background:#16a34a; border-color:#16a34a; }
+.ct-bulkbar__btn--success:hover { background:#15803d; border-color:#15803d; }
+.ct-bulkbar__btn--primary { color:#fff; background:#2563eb; border-color:#2563eb; }
+.ct-bulkbar__btn--primary:hover { background:#1d4ed8; border-color:#1d4ed8; }
+.ct-bulkbar__btn--warning { color:#fff; background:#ea580c; border-color:#ea580c; }
+.ct-bulkbar__btn--warning:hover { background:#c2410c; border-color:#c2410c; }
+.ct-bulkbar__btn--info { color:#fff; background:#7c3aed; border-color:#7c3aed; }
+.ct-bulkbar__btn--info:hover { background:#6d28d9; border-color:#6d28d9; }
+.ct-bulkbar__btn--muted { color:#fff; background:#64748b; border-color:#64748b; }
+.ct-bulkbar__btn--muted:hover { background:#475569; border-color:#475569; }
+.ct-bulkbar__clear { color:var(--text-muted,#64748b); }
+
 /* ── Sidebar accordion ───────────────────────────────────────── */
 .sidebar-group .sidebar-item { display: none; }
 .sidebar-group.open .sidebar-item { display: block; }
@@ -309,3 +348,94 @@ td .ref-select, td .ref-select * { box-shadow: none; }
     .sidebar-section { padding: 10px 16px 4px; font-size: 0.7em; }
     .container { padding: 8px; }
 }
+
+/* ── ct_modal ────────────────────────────── */
+.ct-modal-overlay { position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; padding:24px; }
+.ct-modal-overlay[hidden] { display:none !important; }
+.ct-modal-box { background:white; border-radius:12px; padding:20px; max-width:500px; width:100%; max-height:90vh; overflow-y:auto; box-shadow:0 8px 32px rgba(0,0,0,0.2); }
+.ct-modal-box--sm { max-width:360px; }
+.ct-modal-box--lg { max-width:800px; }
+.ct-modal-header { font-size:1.1em; font-weight:600; margin-bottom:12px; }
+.ct-modal-body { margin-bottom:16px; }
+.ct-modal-footer { display:flex; gap:8px; justify-content:flex-end; padding-top:12px; border-top:1px solid var(--border, #e2e8f0); }
+.ct-modal-btn { padding:4px 12px; line-height:1.4; border-radius:6px; border:1px solid var(--border,#cbd5e1); background:white; cursor:pointer; font-size:0.85em; }
+.ct-modal-btn--primary { background:var(--blue,#2563eb); color:white; border-color:var(--blue,#2563eb); }
+.ct-modal-btn--danger { background:#dc2626; color:white; border-color:#dc2626; }
+
+/* ── ct_actions ──────────────────────────── */
+.ct-actions { display:flex; gap:6px; align-items:center; }
+.ct-btn-action { width:28px; height:28px; border:1px solid var(--border,#cbd5e1); background:white; border-radius:4px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; color:var(--text-muted,#64748b); transition:all 0.15s; }
+.ct-btn-action:hover { color:var(--blue,#2563eb); border-color:var(--blue,#2563eb); }
+.ct-btn-action--danger:hover { color:#dc2626; border-color:#dc2626; }
+
+/* ── ct_status ───────────────────────────── */
+.ct-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:0.75em; font-weight:600; color:white; white-space:nowrap; }
+
+/* ── ct_empty ────────────────────────────── */
+.ct-empty-state { text-align:center; padding:40px 20px; color:var(--text-muted,#64748b); }
+.ct-empty-state__icon { font-size:2em; opacity:0.4; margin-bottom:8px; }
+.ct-empty-state__title { font-size:1em; font-weight:600; margin-bottom:4px; }
+.ct-empty-state__message { font-size:0.88em; margin-bottom:12px; }
+
+/* ── ct_measure editor (styles use ct_modal classes) ── */
+.ct-measure-form { display:flex; flex-direction:column; gap:10px; }
+.ct-measure-form label { display:flex; flex-direction:column; gap:4px; font-size:0.82em; font-weight:600; color:var(--text-muted,#64748b); }
+.ct-measure-form input,
+.ct-measure-form select,
+.ct-measure-form textarea { padding:6px 10px; border:1px solid var(--border,#cbd5e1); border-radius:6px; font-size:0.9em; font-family:inherit; }
+.ct-measure-form textarea { resize:vertical; min-height:60px; }
+.ct-measure-form__row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+.ct-measure-overdue { color:#dc2626; font-weight:600; }
+.ct-measure-overdue::after { content:" ⚠"; }
+
+/* ── ct_search ───────────────────────────── */
+.ct-search { position:relative; display:inline-flex; align-items:center; gap:6px; }
+.ct-search input { padding:6px 30px 6px 30px; border:1px solid var(--border,#cbd5e1); border-radius:6px; font-size:0.9em; min-width:240px; }
+.ct-search__icon { position:absolute; left:8px; color:var(--text-muted,#64748b); pointer-events:none; }
+.ct-search__clear { position:absolute; right:8px; background:none; border:none; cursor:pointer; color:var(--text-muted,#64748b); }
+.ct-search__clear[hidden] { display:none; }
+
+/* ── ct_filter_pills ─────────────────────── */
+.ct-pills-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+.ct-pills-row__label { font-size:0.82em; color:var(--text-muted,#64748b); font-weight:600; }
+.ct-pill { padding:3px 10px; border-radius:14px; border:1px solid var(--border,#cbd5e1); background:white; cursor:pointer; font-size:0.8em; transition:all 0.15s; }
+.ct-pill:hover { border-color:var(--blue,#2563eb); }
+.ct-pill.active { background:var(--blue,#2563eb); color:white; border-color:var(--blue,#2563eb); }
+.ct-pill__count { opacity:0.7; margin-left:4px; }
+.ct-pill--clear { color:var(--text-muted,#64748b); border-style:dashed; }
+
+/* ── ct_userpicker ─────────────────────── */
+.ct-userpicker { position: relative; }
+.ct-userpicker input { width: 100%; padding: 6px 10px; border: 1px solid var(--border, #cbd5e1); border-radius: 6px; font-size: 0.9em; }
+.ct-userpicker-dd {
+    /* Position + max-height are set dynamically by ct_userpicker.js
+       (position: fixed, top/left/width from input's bounding rect)
+       so the dropdown can escape parent containers with overflow:auto
+       (e.g. the measure modal body). */
+    z-index: 1100;
+    background: white; border: 1px solid var(--border, #e2e8f0); border-radius: 6px;
+    overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.ct-userpicker-dd[hidden] { display: none; }
+.ct-userpicker-item { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid var(--border, #e2e8f0); }
+.ct-userpicker-item:hover { background: var(--hover-bg, #f1f5f9); }
+.ct-userpicker-item:last-child { border-bottom: none; }
+.ct-userpicker-create {
+    padding: 8px 10px; cursor: pointer; background: #f0f9ff;
+    border-top: 2px dashed var(--blue, #2563eb); color: var(--blue, #2563eb);
+    font-size: 0.88em; display: flex; align-items: center; gap: 4px;
+}
+.ct-userpicker-create:hover { background: #dbeafe; }
+.ct-userpicker-empty { padding: 10px; color: var(--text-muted, #64748b); font-size: 0.85em; text-align: center; }
+/* Local mode fallback: same visual as the picker's search input */
+.ct-userpicker-plain { width: 100%; padding: 6px 10px; border: 1px solid var(--border, #cbd5e1); border-radius: 6px; font-size: 0.9em; }
+
+/* ── Role-based UI gating ────────────────────────────────────────
+   After auth init, JS adds `role-{moduleRole}` on <body>.
+   Marking an element with `.admin-only` hides it for non-admins.
+   Same for `.editor-up` (visible to editor + admin only).
+   ─────────────────────────────────────────────────────────────── */
+body:not(.role-admin) .admin-only { display: none !important; }
+body:not(.role-admin):not(.role-editor):not(.role-manager):not(.role-contributor) .editor-up { display: none !important; }

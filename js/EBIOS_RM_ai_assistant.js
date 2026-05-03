@@ -269,8 +269,7 @@ var PROMPTS = {
 // ═══════════════════════════════════════════════════════════════════════
 
 async function _callAI(promptObj) {
-    var apiKey = _aiGetApiKey();
-    if (!apiKey) {
+    if (!_aiIsEnabled()) {
         openSettings();
         return null;
     }
@@ -320,6 +319,7 @@ function _renderCards(type, suggestions, acceptFn) {
     }
     var h = "";
     suggestions.forEach(function(s, i) {
+        if (!s || typeof s !== "object") return;
         h += '<div class="ai-card" id="ai-card-' + i + '">';
 
         // Custom rendering for SROV pairs

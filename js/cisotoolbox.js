@@ -184,6 +184,283 @@ function _noop() {}
 window._noop = _noop;
 
 // ═══════════════════════════════════════════════════════════════════════
+// CT_VIZ — Inline SVG helpers for Pilot dashboard (and any other app
+// that needs lightweight data visualisations without a charting library)
+// ═══════════════════════════════════════════════════════════════════════
+//
+// All helpers return a self-contained <svg>…</svg> string and use
+// CT_COLORS for the palette. They are deliberately compact and
+// opinionated — if you need flexibility, compose several of them.
+//
+// See shared/docs/pilot-dashboard-contract.md for the data shapes
+// each helper expects.
+
+function _svgEsc(v) { return String(v == null ? "" : v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+// ── Gauge ─────────────────────────────────────────────────────────
+// Circular gauge with a value label in the centre.
+//   value: current value
+//   max:   upper bound
+//   opts:  { size, color, label, sublabel, thickness }
+function _svgGauge(value, max, opts) {
+    opts = opts || {};
+    var size = opts.size || 120;
+    var thickness = opts.thickness || 10;
+    var pct = Math.max(0, Math.min(1, (max > 0 ? value / max : 0)));
+    var color = (CT_COLORS[opts.color || _postureColor(value, max)] || CT_COLORS.blue).vivid;
+    var r = (size - thickness) / 2;
+    var cx = size / 2, cy = size / 2;
+    var C = 2 * Math.PI * r;
+    var dash = C * pct;
+    var label = opts.label != null ? opts.label : Math.round(value) + (max === 100 ? "%" : "");
+    var sub = opts.sublabel || "";
+    var h = '<svg class="ct-svg-gauge" viewBox="0 0 ' + size + ' ' + size + '" width="' + size + '" height="' + size + '" role="img" aria-label="' + _svgEsc(label + " / " + max) + '">';
+    // Background ring
+    h += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + CT_COLORS.gray.bg + '" stroke-width="' + thickness + '"/>';
+    // Value arc (starts at top, rotates -90deg)
+    h += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + thickness + '" stroke-linecap="round" stroke-dasharray="' + dash + ' ' + C + '" transform="rotate(-90 ' + cx + ' ' + cy + ')"/>';
+    // Centre label
+    h += '<text x="' + cx + '" y="' + (cy + 6) + '" text-anchor="middle" font-size="' + (size * 0.28) + '" font-weight="700" fill="' + CT_COLORS.dark.vivid + '">' + _svgEsc(label) + '</text>';
+    if (sub) {
+        h += '<text x="' + cx + '" y="' + (cy + size * 0.24) + '" text-anchor="middle" font-size="' + (size * 0.10) + '" fill="' + CT_COLORS.gray.vivid + '">' + _svgEsc(sub) + '</text>';
+    }
+    h += '</svg>';
+    return h;
+}
+
+// ── Sparkline ─────────────────────────────────────────────────────
+// Points is a numeric array. opts: { width, height, color, fill }
+function _svgSparkline(points, opts) {
+    opts = opts || {};
+    points = points || [];
+    if (points.length < 2) return '<svg class="ct-svg-spark" viewBox="0 0 60 20" width="60" height="20"></svg>';
+    var w = opts.width || 120, h = opts.height || 28;
+    var min = Math.min.apply(null, points), max = Math.max.apply(null, points);
+    var range = max - min || 1;
+    var step = w / (points.length - 1);
+    var coords = points.map(function(p, i) {
+        var x = (i * step).toFixed(1);
+        var y = (h - ((p - min) / range) * (h - 4) - 2).toFixed(1);
+        return x + "," + y;
+    });
+    var color = (CT_COLORS[opts.color || "blue"] || CT_COLORS.blue).vivid;
+    var out = '<svg class="ct-svg-spark" viewBox="0 0 ' + w + ' ' + h + '" width="' + w + '" height="' + h + '">';
+    if (opts.fill !== false) {
+        var area = "0," + h + " " + coords.join(" ") + " " + w + "," + h;
+        out += '<polygon points="' + area + '" fill="' + color + '" fill-opacity="0.14"/>';
+    }
+    out += '<polyline points="' + coords.join(" ") + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+    out += '</svg>';
+    return out;
+}
+
+// ── Horizontal bar chart ──────────────────────────────────────────
+// Data: { buckets: [{ label, value, color }], scale, unit }
+// Optionally buckets can carry `segments: [{value, color}]` for
+// stacked bars (used by compliance).
+function _svgBar(data, opts) {
+    opts = opts || {};
+    data = data || {};
+    var buckets = data.buckets || [];
+    var scale = data.scale || Math.max.apply(null, buckets.map(function(b) {
+        if (b.segments) return b.segments.reduce(function(a, s) { return a + (s.value || 0); }, 0);
+        return b.value || 0;
+    }).concat([1]));
+    var rowH = opts.rowHeight || 26;
+    var labelW = opts.labelWidth || 110;
+    var valueW = opts.valueWidth || 42;
+    var width = opts.width || 320;
+    var barW = width - labelW - valueW;
+    var h = buckets.length * rowH + 4;
+    var out = '<svg class="ct-svg-bar" viewBox="0 0 ' + width + ' ' + h + '" width="' + width + '" height="' + h + '">';
+    buckets.forEach(function(b, i) {
+        var y = i * rowH + 4;
+        out += '<text x="0" y="' + (y + 13) + '" font-size="11" fill="' + CT_COLORS.dark.vivid + '">' + _svgEsc(b.label) + '</text>';
+        // Background track
+        out += '<rect x="' + labelW + '" y="' + (y + 4) + '" width="' + barW + '" height="12" rx="3" fill="' + CT_COLORS.gray.bg + '"/>';
+        // Bars (stacked or single)
+        var cursor = labelW;
+        var total = 0;
+        if (b.segments) {
+            b.segments.forEach(function(s) {
+                var w = (s.value / scale) * barW;
+                var color = (CT_COLORS[s.color || "blue"] || CT_COLORS.blue).vivid;
+                out += '<rect x="' + cursor + '" y="' + (y + 4) + '" width="' + w.toFixed(1) + '" height="12" fill="' + color + '"/>';
+                cursor += w;
+                total += s.value || 0;
+            });
+            // Round corners on the last visible segment
+            out += '<rect x="' + labelW + '" y="' + (y + 4) + '" width="' + barW + '" height="12" rx="3" fill="none" stroke="' + CT_COLORS.gray.bg + '" stroke-width="0.5"/>';
+        } else {
+            var w = (b.value / scale) * barW;
+            var color = (CT_COLORS[b.color || "blue"] || CT_COLORS.blue).vivid;
+            out += '<rect x="' + labelW + '" y="' + (y + 4) + '" width="' + w.toFixed(1) + '" height="12" rx="3" fill="' + color + '"/>';
+            total = b.value || 0;
+        }
+        // Value
+        var unit = data.unit || "";
+        out += '<text x="' + (width - 2) + '" y="' + (y + 13) + '" text-anchor="end" font-size="11" font-weight="600" fill="' + CT_COLORS.dark.vivid + '">' + _svgEsc(total + unit) + '</text>';
+    });
+    out += '</svg>';
+    return out;
+}
+
+// ── Donut chart ───────────────────────────────────────────────────
+// Data: { segments: [{ label, value, color }], center_label, center_sublabel }
+// Layout: number inside the ring (SVG text, font sized to fit), legend
+// below as small colored chips. No text is placed outside the SVG.
+function _svgDonut(data, opts) {
+    opts = opts || {};
+    data = data || {};
+    var allSegments = data.segments || [];
+    var segments = allSegments.filter(function(s) { return s.value > 0; });
+    var size = opts.size || 140;
+    var thickness = opts.thickness || 20;
+    var r = (size - thickness) / 2;
+    var cx = size / 2, cy = size / 2;
+    var total = segments.reduce(function(a, s) { return a + s.value; }, 0) || 1;
+    var C = 2 * Math.PI * r;
+    // Inner radius available for the centre label
+    var innerR = r - thickness / 2;
+    var svg = '<svg class="ct-svg-donut" viewBox="0 0 ' + size + ' ' + size + '" width="' + size + '" height="' + size + '">';
+    svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + CT_COLORS.gray.bg + '" stroke-width="' + thickness + '"/>';
+    var cumulative = 0;
+    segments.forEach(function(s) {
+        var frac = s.value / total;
+        var len = C * frac;
+        var color = (CT_COLORS[s.color || "blue"] || CT_COLORS.blue).vivid;
+        var offset = -C * cumulative;
+        svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + thickness + '" stroke-dasharray="' + len.toFixed(1) + ' ' + C + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 ' + cx + ' ' + cy + ')"/>';
+        cumulative += frac;
+    });
+    // Centre label: only the number, sized to fit inside the ring
+    if (data.center_label) {
+        var labelStr = String(data.center_label);
+        var fontSize = Math.min(innerR * 0.9, size * 0.22);
+        svg += '<text x="' + cx + '" y="' + (cy + fontSize * 0.35) + '" text-anchor="middle" font-size="' + fontSize + '" font-weight="700" fill="' + CT_COLORS.dark.vivid + '">' + _svgEsc(labelStr) + '</text>';
+    }
+    svg += '</svg>';
+    // Legend below (all segments including zeros for full scale)
+    var legend = '<div class="ct-donut-legend">';
+    allSegments.forEach(function(s) {
+        var color = (CT_COLORS[s.color || "blue"] || CT_COLORS.blue).vivid;
+        legend += '<span class="ct-donut-legend-item"><span class="ct-donut-dot" style="background:' + color + '"></span>' + _svgEsc(s.label) + ' <strong>' + s.value + '</strong></span>';
+    });
+    legend += '</div>';
+    return '<div class="ct-donut-wrap">' + svg + legend + '</div>';
+}
+
+// ── 5x5 heatmap (risk matrix) ─────────────────────────────────────
+// Data: { matrix: number[5][5], x_label, y_label }
+// matrix[impact][likelihood] = count. Impact 0 = lowest row (bottom),
+// likelihood 0 = leftmost column.
+function _svgHeatmap(data, opts) {
+    opts = opts || {};
+    data = data || {};
+    var m = data.matrix || [];
+    var n = m.length || 5;
+    var size = opts.size || 140;
+    var cell = (size - 16) / n;
+    var palette = CT_COLORS.matrix5 || [];
+    var out = '<svg class="ct-svg-heatmap" viewBox="0 0 ' + (size + 4) + ' ' + (size + 4) + '" width="' + (size + 4) + '" height="' + (size + 4) + '">';
+    for (var i = 0; i < n; i++) {
+        for (var j = 0; j < n; j++) {
+            var v = (m[n - 1 - i] && m[n - 1 - i][j]) || 0;  // flip so row 0 is bottom
+            var paletteRow = palette[n - 1 - i] || palette[0] || [];
+            var fill = paletteRow[j] || CT_COLORS.gray.bg;
+            var x = j * cell + 8;
+            var y = i * cell + 2;
+            out += '<rect x="' + x + '" y="' + y + '" width="' + (cell - 1) + '" height="' + (cell - 1) + '" rx="2" fill="' + fill + '" stroke="rgba(255,255,255,0.6)" stroke-width="1"/>';
+            if (v > 0) {
+                out += '<text x="' + (x + cell / 2) + '" y="' + (y + cell / 2 + 3) + '" text-anchor="middle" font-size="' + Math.max(9, cell * 0.38) + '" font-weight="700" fill="#0f172a">' + v + '</text>';
+            }
+        }
+    }
+    out += '</svg>';
+    return out;
+}
+
+// ── Timeline ──────────────────────────────────────────────────────
+// Data: { events: [{ date, label, status }] }
+function _svgTimeline(data, opts) {
+    opts = opts || {};
+    data = data || {};
+    var events = (data.events || []).slice(-8); // keep latest 8
+    if (!events.length) return '<div class="ct-empty">Aucun événement</div>';
+    var w = opts.width || 320, h = 60;
+    var statusColor = {
+        completed: CT_COLORS.green.vivid,
+        in_progress: CT_COLORS.blue.vivid,
+        planned: CT_COLORS.gray.vivid,
+        overdue: CT_COLORS.red.vivid,
+        cancelled: CT_COLORS.gray.vivid,
+    };
+    // X axis: time between first and last event
+    var first = new Date(events[0].date).getTime();
+    var last = new Date(events[events.length - 1].date).getTime();
+    var span = Math.max(1, last - first);
+    var out = '<svg class="ct-svg-timeline" viewBox="0 0 ' + w + ' ' + h + '" width="' + w + '" height="' + h + '">';
+    out += '<line x1="8" y1="30" x2="' + (w - 8) + '" y2="30" stroke="' + CT_COLORS.gray.bg + '" stroke-width="2"/>';
+    events.forEach(function(e) {
+        var t = new Date(e.date).getTime();
+        var frac = span > 0 ? (t - first) / span : 0.5;
+        var x = 8 + frac * (w - 16);
+        var color = statusColor[e.status] || CT_COLORS.gray.vivid;
+        out += '<circle cx="' + x.toFixed(1) + '" cy="30" r="5" fill="' + color + '" stroke="#fff" stroke-width="2"><title>' + _svgEsc(e.label + " — " + e.date) + '</title></circle>';
+    });
+    // Date ticks on edges
+    out += '<text x="8" y="50" font-size="10" fill="' + CT_COLORS.gray.vivid + '">' + _svgEsc((events[0].date || "").slice(0, 10)) + '</text>';
+    out += '<text x="' + (w - 8) + '" y="50" text-anchor="end" font-size="10" fill="' + CT_COLORS.gray.vivid + '">' + _svgEsc((events[events.length - 1].date || "").slice(0, 10)) + '</text>';
+    out += '</svg>';
+    return out;
+}
+
+// ── Posture color helper ──────────────────────────────────────────
+// Returns a CT_COLORS key based on a 0..100 score.
+function _postureColor(value, max) {
+    var pct = max ? value / max * 100 : value;
+    if (pct < 40) return "red";
+    if (pct < 60) return "orange";
+    if (pct < 80) return "yellow";
+    return "green";
+}
+
+// ── Posture label helper ──────────────────────────────────────────
+function _postureLabel(score) {
+    if (score == null) return "";
+    if (score < 40) return "Faible";
+    if (score < 60) return "Modéré";
+    if (score < 80) return "Bon";
+    return "Excellent";
+}
+
+// ── Dispatcher: render a breakdown by its type ───────────────────
+// Used by Pilot to turn the module stats.breakdown into SVG.
+function _svgBreakdown(breakdown, opts) {
+    if (!breakdown || !breakdown.type) return "";
+    var data = breakdown.data || {};
+    switch (breakdown.type) {
+        case "heatmap_5x5": return _svgHeatmap(data, opts);
+        case "bar":         return _svgBar(data, opts);
+        case "donut":       return _svgDonut(data, { size: (opts && opts.size) || 110, thickness: 16 });
+        case "gauge":       return _svgGauge(data.value || 0, data.max || 100, { sublabel: data.label, color: data.color, size: opts.size || 120 });
+        case "timeline":    return _svgTimeline(data, opts);
+        default:            return "";
+    }
+}
+
+// Expose on window so apps loaded after cisotoolbox.js can use them
+window._svgGauge = _svgGauge;
+window._svgSparkline = _svgSparkline;
+window._svgBar = _svgBar;
+window._svgDonut = _svgDonut;
+window._svgHeatmap = _svgHeatmap;
+window._svgTimeline = _svgTimeline;
+window._svgBreakdown = _svgBreakdown;
+window._postureColor = _postureColor;
+window._postureLabel = _postureLabel;
+
+// ═══════════════════════════════════════════════════════════════════════
 // SIDEBAR ACCORDION — shared accordion for sidebar groups
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -310,9 +587,13 @@ function _safeDispatch(fn, args) {
     if (typeof window[fn] === "function") window[fn].apply(null, args);
 }
 
+var _mouseDownTarget = null;
+document.addEventListener("mousedown", function(e) { _mouseDownTarget = e.target; });
+
 document.addEventListener("click", function(e) {
     var selfEl = e.target.closest("[data-click-self]");
     if (selfEl && e.target === selfEl) {
+        if (_mouseDownTarget !== selfEl) return;
         var fn0 = selfEl.getAttribute("data-click-self");
         _safeDispatch(fn0, []);
         return;
@@ -596,7 +877,10 @@ function showStatus(msg) {
 }
 
 function toggleMenu() {
-    document.getElementById("io-menu").classList.toggle("open");
+    // Apps that don't ship an #io-menu dropdown (Surface, future modules)
+    // still trigger this via ai_common.js openSettings() — guard the lookup.
+    var el = document.getElementById("io-menu");
+    if (el) el.classList.toggle("open");
 }
 
 document.addEventListener("click", function(e) {
@@ -800,6 +1084,8 @@ var _ctMatrixCounter = 0;
  */
 function ctRenderMatrix(opts) {
     var N = opts.levels || 5;
+    var NX = opts.xLevels || N;
+    var NY = opts.yLevels || N;
     var yLabelsArr = opts.yLabels || [];
     var maxYLen = 0;
     for (var _i = 0; _i < yLabelsArr.length; _i++) {
@@ -810,11 +1096,11 @@ function ctRenderMatrix(opts) {
     var ML = Math.max(58, 28 + maxYLen * 5.5);  // left margin: axis label + tick labels
     var MB = 32;  // bottom margin
     var MT = 4;   // top margin
-    var gridW = N * 55;
-    var gridH = N * 50;
+    var gridW = NX * 55;
+    var gridH = NY * 50;
     var W = ML + gridW + 4;
     var H = MT + gridH + MB;
-    var cellW = gridW / N, cellH = gridH / N;
+    var cellW = gridW / NX, cellH = gridH / NY;
 
     var colors = opts.colors || (N === 4 ? CT_COLORS.matrix4 : CT_COLORS.matrix5);
     var colorFn = opts.colorFn || null;
@@ -839,10 +1125,10 @@ function ctRenderMatrix(opts) {
     var svg = '<div style="display:flex;flex-direction:column;align-items:center"><svg viewBox="-14 0 ' + (W + 14) + ' ' + H + '" style="width:100%;max-width:420px;overflow:visible">';
 
     // Background cells
-    for (var row = 0; row < N; row++) {
-        for (var col = 0; col < N; col++) {
+    for (var row = 0; row < NY; row++) {
+        for (var col = 0; col < NX; col++) {
             var x = ML + col * cellW;
-            var y = MT + (N - 1 - row) * cellH;
+            var y = MT + (NY - 1 - row) * cellH;
             var fill = colorFn ? colorFn(col + 1, row + 1) : ((colors[row] && colors[row][col]) || "#f1f5f9");
             svg += '<rect x="' + x + '" y="' + y + '" width="' + cellW + '" height="' + cellH + '" fill="' + fill + '" stroke="white" stroke-width="1"/>';
         }
@@ -857,7 +1143,7 @@ function ctRenderMatrix(opts) {
         var items = grid[k];
         if (!items || !items.length) continue;
         var cx = ML + (cx_val - 1) * cellW + cellW / 2;
-        var cy = MT + (N - cy_val) * cellH + cellH / 2;
+        var cy = MT + (NY - cy_val) * cellH + cellH / 2;
         var dotId = matrixId + "-" + cx_val + "-" + cy_val;
         var r = Math.min(14, 8 + items.length * 2);
         svg += '<circle id="' + dotId + '" cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="rgba(37,99,235,0.8)" stroke="white" stroke-width="1.5" style="cursor:pointer"/>';
@@ -871,14 +1157,15 @@ function ctRenderMatrix(opts) {
     var yCenter = MT + gridH / 2;
     svg += '<text x="6" y="' + yCenter + '" text-anchor="middle" font-size="9" fill="#64748b" transform="rotate(-90,6,' + yCenter + ')">' + esc(yLabel) + '</text>';
 
-    // Tick labels
-    for (var n = 1; n <= N; n++) {
-        var xLbl = xLabels ? (xLabels[n - 1] || n) : n;
-        var yLbl = yLabels ? (yLabels[n - 1] || n) : n;
-        // X ticks below grid
-        svg += '<text x="' + (ML + (n - 1) * cellW + cellW / 2) + '" y="' + (MT + gridH + 14) + '" text-anchor="middle" font-size="9" fill="#94a3b8">' + esc(String(xLbl)) + '</text>';
-        // Y ticks left of grid
-        svg += '<text x="' + (ML - 5) + '" y="' + (MT + (N - n) * cellH + cellH / 2 + 3) + '" text-anchor="end" font-size="8" fill="#94a3b8">' + esc(String(yLbl)) + '</text>';
+    // Tick labels — X axis
+    for (var nx = 1; nx <= NX; nx++) {
+        var xLbl = xLabels ? (xLabels[nx - 1] || nx) : nx;
+        svg += '<text x="' + (ML + (nx - 1) * cellW + cellW / 2) + '" y="' + (MT + gridH + 14) + '" text-anchor="middle" font-size="9" fill="#94a3b8">' + esc(String(xLbl)) + '</text>';
+    }
+    // Tick labels — Y axis
+    for (var ny = 1; ny <= NY; ny++) {
+        var yLbl = yLabels ? (yLabels[ny - 1] || ny) : ny;
+        svg += '<text x="' + (ML - 5) + '" y="' + (MT + (NY - ny) * cellH + cellH / 2 + 3) + '" text-anchor="end" font-size="8" fill="#94a3b8">' + esc(String(yLbl)) + '</text>';
     }
 
     svg += '</svg>';

@@ -284,6 +284,7 @@ function toggleDICT(section, idx, field, dim, el) {
     current.sort((a,b) => order.indexOf(a) - order.indexOf(b));
     D[section][idx][field] = current.join(", ");
     el.classList.toggle("active");
+    _persist(section);
     showStatus(t("ebios.status.modified"));
 }
 
@@ -897,7 +898,8 @@ function updateRefField(fwId, idx, field, value, cast) {
     const refKey = _compRefKey(fwId, idx);
     if (!D.socle_complementaires[fwId][refKey]) D.socle_complementaires[fwId][refKey] = {conformite: "", ecart: "", mesures_prevues: ""};
     D.socle_complementaires[fwId][refKey][field] = cast === "number" ? (value === "" ? "" : parseInt(value)) : value;
-    _autoSave();
+    if (typeof _persistSettings === "function") _persistSettings();
+    else _autoSave();
 }
 
 function renderSocleRefs() {
@@ -1347,6 +1349,7 @@ function _ecoSyncColumns(idx, field, measureId, added) {
         // Retirer de l'autre colonne
         otherParts.splice(found, 1);
         eco[otherField] = otherParts.join(", ");
+        _persist("eco");
 
         if (field === "mesures_complementaires") {
             // Ajouté dans complémentaires → était dans existantes
@@ -1354,6 +1357,7 @@ function _ecoSyncColumns(idx, field, measureId, added) {
             const m = D.measures.find(x => x.id === measureId);
             if (m && m.statut === "Terminé") {
                 m.statut = "À étudier";
+                _persist("measures");
                 showStatus(t("ebios.status.eco_moved_compl", {id: measureId}));
             }
         } else {
@@ -3011,6 +3015,11 @@ try {
     } else {
         _initDataAndRender();
     }
+    // Hash-based deep link from Pilot (e.g. /risk/#measures)
+    var _hashPanel = (location.hash || "").replace("#", "");
+    if (_hashPanel && typeof selectPanel === "function") {
+        setTimeout(function() { selectPanel(_hashPanel); }, 200);
+    }
     _applyStaticTranslations();
     // Masquer "Enregistrer" si le File System Access API n'est pas disponible
     if (!window.showSaveFilePicker && !window.showOpenFilePicker) {
@@ -3028,6 +3037,6 @@ ${esc(e.stack||"")}</pre></section>`;
 // AI module config (read by ai_common.js)
 window.AI_APP_CONFIG = {
     storagePrefix: "ebios",
-    settingsExtraHTML: function() { return _demoSettingsHTML(); },
-    onSettingsRendered: function() { _wireDemoSettings(); }
+    settingsExtraHTML: function() { return typeof _demoSettingsHTML === "function" ? _demoSettingsHTML() : ""; },
+    onSettingsRendered: function() { if (typeof _wireDemoSettings === "function") _wireDemoSettings(); }
 };
